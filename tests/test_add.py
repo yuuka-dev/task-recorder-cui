@@ -36,3 +36,12 @@ def test_未登録カテゴリはexit1(isolated_db: Path, capsys: pytest.Capture
     exit_code = main(["add", "unknown_cat", "30"])
     assert exit_code == 1
     assert "unknown_cat" in capsys.readouterr().err
+
+
+def test_archivedカテゴリはexit1(isolated_db: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    main(["cat", "remove", "game"])
+    capsys.readouterr()
+    exit_code = main(["add", "game", "30", "archived試行"])
+    assert exit_code == 1
+    err = capsys.readouterr().err
+    assert "アーカイブ済み" in err
