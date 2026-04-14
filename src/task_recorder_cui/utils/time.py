@@ -67,6 +67,35 @@ def from_iso(s: str) -> datetime:
     return dt
 
 
+def humanize_relative(when: datetime, now: datetime) -> str:
+    """ある時刻と現在時刻の差分を「たった今/N分前/N時間前/昨日/N日前」形式で返す。
+
+    Args:
+        when: 過去の時刻 (tz付き)。
+        now: 基準とする現在時刻 (tz付き)。
+
+    Returns:
+        人間向けの相対時刻文字列。
+
+    Raises:
+        ValueError: いずれかが naive な datetime の場合。
+
+    """
+    if when.tzinfo is None or now.tzinfo is None:
+        raise ValueError("naive datetime is not allowed; use timezone-aware datetime")
+    delta = now - when
+    total_seconds = int(delta.total_seconds())
+    if total_seconds < 60:
+        return "たった今"
+    if total_seconds < 60 * 60:
+        return f"{total_seconds // 60}分前"
+    if total_seconds < 24 * 60 * 60:
+        return f"{total_seconds // 3600}時間前"
+    if total_seconds < 48 * 60 * 60:
+        return "昨日"
+    return f"{delta.days}日前"
+
+
 def format_duration(minutes: int) -> str:
     """分を '2h30m' 形式に整形する。
 
