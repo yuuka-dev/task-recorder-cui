@@ -1,9 +1,9 @@
 """argparse ベースの CLI エントリポイント。
 
 本モジュールはサブコマンドの受け口 (parser) と main ディスパッチャを持つ。
-記録系 (start/stop/now/add) と参照系 (today/week/month/range/all) は
-commands/ 配下の実装に dispatch する。カテゴリ管理 (cat ...)、インタラクティブ
-メニューは対応 Phase まで未実装スタブで応答する。
+記録系 (start/stop/now/add)、参照系 (today/week/month/range/all)、カテゴリ管理
+(cat ...) は commands/ 配下の実装に dispatch する。インタラクティブメニューは
+Phase 6 まで未実装スタブで応答する。
 """
 
 import argparse
@@ -11,6 +11,7 @@ import argparse
 from task_recorder_cui import __version__
 from task_recorder_cui.commands import add as add_cmd
 from task_recorder_cui.commands import all as all_cmd
+from task_recorder_cui.commands import cat as cat_cmd
 from task_recorder_cui.commands import month as month_cmd
 from task_recorder_cui.commands import now as now_cmd
 from task_recorder_cui.commands import range as range_cmd
@@ -20,7 +21,6 @@ from task_recorder_cui.commands import today as today_cmd
 from task_recorder_cui.commands import week as week_cmd
 from task_recorder_cui.io import print_line
 
-_CAT_PHASE = "Phase 5"
 _MENU_PHASE = "Phase 6"
 
 
@@ -96,8 +96,17 @@ def build_parser() -> argparse.ArgumentParser:
     # --- カテゴリ管理 ---
     p_cat = sub.add_parser("cat", help="カテゴリ管理")
     cat_sub = p_cat.add_subparsers(dest="cat_action", metavar="<action>", required=True)
-    cat_sub.add_parser("list", help="カテゴリ一覧")
-    p_cat_add = cat_sub.add_parser("add", help="カテゴリを追加")
+
+    p_cat_list = cat_sub.add_parser("list", help="カテゴリ一覧")
+    list_filter = p_cat_list.add_mutually_exclusive_group()
+    list_filter.add_argument(
+        "--active", action="store_true", help="archived でないカテゴリだけ表示"
+    )
+    list_filter.add_argument("--archived", action="store_true", help="archived のカテゴリだけ表示")
+
+    p_cat_add = cat_sub.add_parser(
+        "add", help="カテゴリを追加 (archived同名があれば復帰+表示名上書き)"
+    )
     p_cat_add.add_argument("key", help="新しいカテゴリキー")
     p_cat_add.add_argument("display_name", help="表示名")
     p_cat_remove = cat_sub.add_parser("remove", help="カテゴリをアーカイブ")
@@ -153,8 +162,17 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "all":
         return all_cmd.run()
 
-    # --- 未実装スタブ ---
+    # --- カテゴリ管理 (Phase 5) ---
     if args.command == "cat":
-        return _not_implemented(f"tsk cat {args.cat_action}", _CAT_PHASE)
+        if args.cat_action == "list":
+            return cat_cmd.list_categories(active_only=args.active, archived_only=args.archived)
+        if args.cat_action == "add":
+            return cat_cmd.add_category(args.key, args.display_name)
+        if args.cat_action == "remove":
+            return cat_cmd.remove_category(args.key)
+        if args.cat_action == "restore":
+            return cat_cmd.restore_category(args.key)
+        if args.cat_action == "rename":
+            return cat_cmd.rename_category(args.key, args.new_display_name)
 
     return _not_implemented(f"tsk {args.command}", "未定")

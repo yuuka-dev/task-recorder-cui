@@ -9,7 +9,7 @@ import sqlite3
 from datetime import datetime
 
 from task_recorder_cui.models import Category, Record
-from task_recorder_cui.utils.time import from_iso, to_iso
+from task_recorder_cui.utils.time import from_iso, now_utc, to_iso
 
 
 def row_to_category(row: sqlite3.Row) -> Category:
@@ -49,6 +49,95 @@ def find_category(conn: sqlite3.Connection, key: str) -> Category | None:
     """
     row = conn.execute("SELECT * FROM categories WHERE key = ?", (key,)).fetchone()
     return row_to_category(row) if row else None
+
+
+def list_all_categories(
+    conn: sqlite3.Connection,
+    *,
+    active_only: bool = False,
+    archived_only: bool = False,
+) -> list[Category]:
+    """カテゴリ一覧を返す。
+
+    Args:
+        conn: DB接続。
+        active_only: True なら archived=0 のみ。
+        archived_only: True なら archived=1 のみ。
+        両方 False なら全件 (archived 順 → id 順でソート)。
+
+    Returns:
+        Category のリスト。
+
+    """
+    if active_only:
+        rows = conn.execute("SELECT * FROM categories WHERE archived = 0 ORDER BY id").fetchall()
+    elif archived_only:
+        rows = conn.execute("SELECT * FROM categories WHERE archived = 1 ORDER BY id").fetchall()
+    else:
+        rows = conn.execute("SELECT * FROM categories ORDER BY archived, id").fetchall()
+    return [row_to_category(r) for r in rows]
+
+
+def insert_category(conn: sqlite3.Connection, key: str, display_name: str) -> int:
+    """カテゴリを1件挿入する。created_at には現在UTCを入れる。
+
+    Args:
+        conn: DB接続。
+        key: 新しいカテゴリキー。
+        display_name: 表示名。
+
+    Returns:
+        挿入された行の id。
+
+    Raises:
+        sqlite3.IntegrityError: key UNIQUE 制約違反時。
+
+    """
+    cur = conn.execute(
+        "INSERT INTO categories (key, display_name, created_at) VALUES (?, ?, ?)",
+        (key, display_name, to_iso(now_utc())),
+    )
+    if cur.lastrowid is None:
+        raise RuntimeError("INSERT が lastrowid を返しませんでした")
+    return cur.lastrowid
+
+
+def update_category_archived(conn: sqlite3.Connection, key: str, *, archived: bool) -> int:
+    """カテゴリの archived フラグを更新する。
+
+    Args:
+        conn: DB接続。
+        key: 対象カテゴリキー。
+        archived: 新しい archived 値。
+
+    Returns:
+        更新された行数 (0 なら key 未存在)。
+
+    """
+    cur = conn.execute(
+        "UPDATE categories SET archived = ? WHERE key = ?",
+        (1 if archived else 0, key),
+    )
+    return cur.rowcount
+
+
+def update_category_display_name(conn: sqlite3.Connection, key: str, new_display_name: str) -> int:
+    """カテゴリの display_name を更新する (key は不変)。
+
+    Args:
+        conn: DB接続。
+        key: 対象カテゴリキー。
+        new_display_name: 新しい表示名。
+
+    Returns:
+        更新された行数 (0 なら key 未存在)。
+
+    """
+    cur = conn.execute(
+        "UPDATE categories SET display_name = ? WHERE key = ?",
+        (new_display_name, key),
+    )
+    return cur.rowcount
 
 
 def find_active_record(conn: sqlite3.Connection) -> Record | None:
