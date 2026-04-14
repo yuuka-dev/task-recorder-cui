@@ -261,19 +261,23 @@ task-recorder-cui/
 - カテゴリの物理削除 (archiveで十分)
 - クラウド同期
 - 通知機能
-- グラフ描画 (CLIの数字表示のみ)
-- PC総稼働時間の自動取得 (ActivityWatch等の外部ツール連携は後回し)
 - タグ機能 (カテゴリ1つで十分)
 - 優先度機能 (時間記録に優先度は不要)
 - ポモドーロタイマー機能 (別ツール)
 
-## 将来の拡張候補 (MVP後、やるかは未定)
+## Phase 2 計画 (MVP 後の拡張ロードマップ)
 
-- CSVエクスポート (`tsk export --from 2026-04-01 --to 2026-04-30`)
-- Android版 (同じスキーマをRoomで実装)
-- Webダッシュボード (ObatLogと同じ技術スタックで、Next.js + Firestore)
-- ActivityWatch連携による稼働時間比率表示
-- 過去レコードの編集 (`tsk edit <id>`)
+MVP (Phase 1-7) は v1.0.0 で完成。以降は以下の優先順で検討:
+
+- **データ可視化** (本命): jupyterlab + pandas + plotly で interactive グラフ
+  - `tsk export --csv` → notebook で `px.bar(df, x='date', y='minutes', color='category_key')` など
+  - dev deps に `jupyterlab` / `pandas` は投入済、`plotly` の追加のみでいける
+  - WSL2 運用は Jupyter Lab 中心 (Windows ブラウザが localhost に繋がる)
+- **CSV エクスポート**: `tsk export --from YYYY-MM-DD --to YYYY-MM-DD` (可視化の前段)
+- **過去レコードの編集**: `tsk edit <id>`
+- **Android 版**: 同じ SQLite スキーマを Room に移植
+- **Web ダッシュボード**: Next.js + Firestore (ObatLog スタック踏襲)
+- **ActivityWatch 連携**: 稼働時間比率を自動取得
 
 ## ライセンス
 MIT (予定、pyproject.tomlに記載)
