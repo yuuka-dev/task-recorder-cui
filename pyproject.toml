@@ -21,6 +21,7 @@ dependencies = [
 dev = [
     "ruff",
     "pytest",
+    "pytest-cov",
     "jupyterlab",
     "pandas",
 ]
@@ -69,3 +70,14 @@ skip-magic-trailing-comma = false
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-ra -q"
+
+[tool.coverage.run]
+source = ["task_recorder_cui"]
+branch = true
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "if __name__ == .__main__.:",
+    "raise NotImplementedError",
+]
