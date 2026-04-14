@@ -1,18 +1,34 @@
 """tsk range コマンドのテスト。"""
 
-from datetime import date
+from datetime import datetime, timedelta
 from pathlib import Path
 
 import pytest
 
 from task_recorder_cui.cli import main
+from task_recorder_cui.db import open_db
+from task_recorder_cui.repo import insert_record
+
+
+def _local_noon() -> datetime:
+    """テスト用: 今日のローカル正午 (tz付き)。日付境界のテスト不安定を防ぐ。"""
+    return datetime.now().astimezone().replace(hour=12, minute=0, second=0, microsecond=0)
 
 
 def test_任意期間の集計を表示(isolated_db: Path, capsys: pytest.CaptureFixture[str]) -> None:
-    main(["add", "dev", "120"])
+    noon = _local_noon()
+    with open_db() as conn, conn:
+        insert_record(
+            conn,
+            category_key="dev",
+            description=None,
+            started_at=noon - timedelta(minutes=120),
+            ended_at=noon,
+            duration_minutes=120,
+        )
     capsys.readouterr()
 
-    today = date.today().isoformat()
+    today = noon.date().isoformat()
     exit_code = main(["range", "--from", today, "--to", today])
     assert exit_code == 0
     out = capsys.readouterr().out

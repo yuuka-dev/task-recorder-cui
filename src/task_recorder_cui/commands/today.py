@@ -1,9 +1,9 @@
 """tsk today: 今日の記録一覧と合計を表示する。"""
 
 from task_recorder_cui.commands._summary import (
-    _WEEKDAY_EN,
-    _period_bounds_utc,
+    WEEKDAY_EN,
     aggregate_period,
+    period_bounds_utc,
     render_category_totals,
     today_local,
 )
@@ -25,7 +25,7 @@ def run() -> int:
     with open_db() as conn:
         summary = aggregate_period(conn, today, today)
 
-        start_utc, end_next_utc = _period_bounds_utc(today, today)
+        start_utc, end_next_utc = period_bounds_utc(today, today)
         rows = conn.execute(
             "SELECT * FROM records WHERE started_at >= ? AND started_at < ? ORDER BY started_at",
             (to_iso(start_utc), to_iso(end_next_utc)),
@@ -42,7 +42,7 @@ def run() -> int:
 
         display_names = summary.display_names
 
-    header = f"{today.strftime('%Y-%m-%d')} ({_WEEKDAY_EN[today.weekday()]})"
+    header = f"{today.strftime('%Y-%m-%d')} ({WEEKDAY_EN[today.weekday()]})"
     print_line(header)
 
     if not records:

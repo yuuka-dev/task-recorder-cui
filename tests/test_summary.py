@@ -9,7 +9,13 @@ from task_recorder_cui.commands._summary import (
 )
 from task_recorder_cui.db import open_db
 from task_recorder_cui.repo import insert_record
-from task_recorder_cui.utils.time import now_utc
+
+
+def _local_noon():
+    """テスト用: 今日のローカル正午 (tz付き)。日付境界のテスト不安定を防ぐ。"""
+    from datetime import datetime
+
+    return datetime.now().astimezone().replace(hour=12, minute=0, second=0, microsecond=0)
 
 
 def test_aggregate_period_空DB(isolated_db: Path) -> None:
@@ -23,23 +29,23 @@ def test_aggregate_period_空DB(isolated_db: Path) -> None:
 
 def test_aggregate_period_単一日複数カテゴリ(isolated_db: Path) -> None:
     today = today_local()
-    now = now_utc()
+    noon = _local_noon()
     with open_db() as conn:
         with conn:
             insert_record(
                 conn,
                 category_key="game",
                 description="a",
-                started_at=now - timedelta(minutes=60),
-                ended_at=now - timedelta(minutes=30),
+                started_at=noon - timedelta(minutes=90),
+                ended_at=noon - timedelta(minutes=60),
                 duration_minutes=30,
             )
             insert_record(
                 conn,
                 category_key="study",
                 description="b",
-                started_at=now - timedelta(minutes=30),
-                ended_at=now - timedelta(minutes=10),
+                started_at=noon - timedelta(minutes=60),
+                ended_at=noon - timedelta(minutes=40),
                 duration_minutes=20,
             )
         summary = aggregate_period(conn, today, today)
@@ -51,14 +57,14 @@ def test_aggregate_period_単一日複数カテゴリ(isolated_db: Path) -> None
 
 def test_aggregate_period_記録中セッションを計上(isolated_db: Path) -> None:
     today = today_local()
-    now = now_utc()
+    noon = _local_noon()
     with open_db() as conn:
         with conn:
             insert_record(
                 conn,
                 category_key="dev",
                 description="実装",
-                started_at=now - timedelta(minutes=5),
+                started_at=noon - timedelta(minutes=5),
             )
         summary = aggregate_period(conn, today, today)
     assert summary.active_partial_minutes >= 0
