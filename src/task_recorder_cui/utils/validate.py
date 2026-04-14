@@ -13,6 +13,7 @@ def validate_category_key(key: str) -> None:
 
     Raises:
         ValueError: 不正なkeyの場合。
+
     """
     if not key:
         raise ValueError("category key は空にできません")

@@ -1,20 +1,21 @@
 """argparse ベースの CLI エントリポイント。
 
-本モジュールではサブコマンドの受け口 (parser) と main ディスパッチャのみを
-用意する。各サブコマンドの実処理は Phase 3-5 で commands/ 配下に実装するため、
-現時点ではスタブが「未実装」メッセージを返す。
+本モジュールはサブコマンドの受け口 (parser) と main ディスパッチャを持つ。
+記録系 (start/stop/now/add) は commands/ 配下の実装に dispatch する。
+参照系 (today/week/month) とカテゴリ管理 (cat ...)、インタラクティブメニューは
+対応 Phase まで未実装スタブで応答する。
 """
 
 import argparse
 
 from task_recorder_cui import __version__
+from task_recorder_cui.commands import add as add_cmd
+from task_recorder_cui.commands import now as now_cmd
+from task_recorder_cui.commands import start as start_cmd
+from task_recorder_cui.commands import stop as stop_cmd
 from task_recorder_cui.io import print_line
 
 _SUBCOMMAND_PHASE: dict[str, str] = {
-    "start": "Phase 3",
-    "stop": "Phase 3",
-    "add": "Phase 3",
-    "now": "Phase 3",
     "today": "Phase 4",
     "week": "Phase 4",
     "month": "Phase 4",
@@ -33,6 +34,7 @@ def _not_implemented(feature: str, phase: str) -> int:
 
     Returns:
         常に 0 (エラー扱いしない)。
+
     """
     print_line(f"({feature} は {phase} で実装予定)")
     return 0
@@ -43,6 +45,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     Returns:
         サブコマンドを含む設定済み ArgumentParser。
+
     """
     parser = argparse.ArgumentParser(
         prog="tsk",
@@ -105,6 +108,7 @@ def main(argv: list[str] | None = None) -> int:
     Raises:
         SystemExit: --help / --version 表示時、または usage error 時に
             argparse が送出する。正常終了は code=0、usage error は code=2。
+
     """
     parser = build_parser()
     args = parser.parse_args(argv)
@@ -112,6 +116,17 @@ def main(argv: list[str] | None = None) -> int:
     if args.command is None:
         return _not_implemented("インタラクティブメニュー", _MENU_PHASE)
 
+    # --- 記録系 (Phase 3 実装済) ---
+    if args.command == "start":
+        return start_cmd.run(args.category_key, args.description)
+    if args.command == "stop":
+        return stop_cmd.run()
+    if args.command == "now":
+        return now_cmd.run()
+    if args.command == "add":
+        return add_cmd.run(args.category_key, args.minutes, args.description)
+
+    # --- 未実装スタブ ---
     if args.command == "cat":
         return _not_implemented(f"tsk cat {args.cat_action}", _CAT_PHASE)
 
