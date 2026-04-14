@@ -1,0 +1,43 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "task-recorder-cui"
+version = "0.1.0"
+description = "日々の時間の使い方を記録するCUIツール"
+readme = "README.md"
+requires-python = ">=3.11"
+license = "MIT"
+authors = [
+    { name = "Yumeno Yuuka" },
+]
+dependencies = [
+    "rich",
+    "questionary",
+]
+
+[project.optional-dependencies]
+dev = [
+    "ruff",
+    "jupyterlab",
+    "pandas",
+]
+
+[project.scripts]
+tsk = "task_recorder_cui.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "N", "UP", "B", "C4", "SIM"]
+ignore = []
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
