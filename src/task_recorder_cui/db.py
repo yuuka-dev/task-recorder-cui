@@ -6,6 +6,8 @@ DBファイルは `~/.local/share/tsk/records.db` に配置する。
 
 import os
 import sqlite3
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
 
 from task_recorder_cui.utils.time import now_utc, to_iso
@@ -48,6 +50,7 @@ def get_db_path() -> Path:
 
     Returns:
         SQLiteファイルのPath。
+
     """
     env = os.environ.get("TSK_DB_PATH")
     if env:
@@ -63,6 +66,7 @@ def connect(db_path: Path | None = None) -> sqlite3.Connection:
 
     Returns:
         `sqlite3.Row` を row_factory に設定済みのConnection。
+
     """
     path = db_path if db_path is not None else get_db_path()
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -81,6 +85,7 @@ def initialize(conn: sqlite3.Connection) -> None:
 
     Args:
         conn: 対象のSQLite接続。
+
     """
     # DDL は executescript が暗黙コミットする (Python標準仕様)。
     conn.executescript(_SCHEMA)
@@ -93,3 +98,21 @@ def initialize(conn: sqlite3.Connection) -> None:
                 "INSERT INTO categories (key, display_name, created_at) VALUES (?, ?, ?)",
                 [(key, name, now_iso) for key, name in INITIAL_CATEGORIES],
             )
+
+
+@contextmanager
+def open_db() -> Iterator[sqlite3.Connection]:
+    """DBに接続してスキーマを適用し、終了時にクローズするコンテキストマネージャ。
+
+    書き込みを行う場合は呼び出し側で `with conn:` を張りトランザクション管理すること。
+
+    Yields:
+        初期化済みのSQLite Connection。
+
+    """
+    conn = connect()
+    try:
+        initialize(conn)
+        yield conn
+    finally:
+        conn.close()
