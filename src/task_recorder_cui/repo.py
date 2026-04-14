@@ -225,3 +225,28 @@ def update_record_end(
         "UPDATE records SET ended_at = ?, duration_minutes = ? WHERE id = ?",
         (to_iso(ended_at), duration_minutes, record_id),
     )
+
+
+def list_recent_records(conn: sqlite3.Connection, limit: int) -> list[Record]:
+    """完了済みレコードを新しい順に最大 limit 件返す。
+
+    記録中セッション (`ended_at IS NULL`) は除外する。menu のヘッダ「直近」表示
+    用途を想定。
+
+    **不変条件**: 戻り値の各 Record の `ended_at` は必ず not None。
+
+    Args:
+        conn: DB接続。
+        limit: 取得件数の上限 (正の整数を想定、0 以下なら空リスト)。
+
+    Returns:
+        新しい順 (started_at DESC) の Record リスト。
+
+    """
+    if limit <= 0:
+        return []
+    rows = conn.execute(
+        "SELECT * FROM records WHERE ended_at IS NOT NULL ORDER BY started_at DESC LIMIT ?",
+        (limit,),
+    ).fetchall()
+    return [row_to_record(r) for r in rows]
