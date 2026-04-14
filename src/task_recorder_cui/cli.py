@@ -1,25 +1,24 @@
 """argparse ベースの CLI エントリポイント。
 
 本モジュールはサブコマンドの受け口 (parser) と main ディスパッチャを持つ。
-記録系 (start/stop/now/add) は commands/ 配下の実装に dispatch する。
-参照系 (today/week/month) とカテゴリ管理 (cat ...)、インタラクティブメニューは
-対応 Phase まで未実装スタブで応答する。
+記録系 (start/stop/now/add) と参照系 (today/week/month/range/all) は
+commands/ 配下の実装に dispatch する。カテゴリ管理 (cat ...)、インタラクティブ
+メニューは対応 Phase まで未実装スタブで応答する。
 """
 
 import argparse
 
 from task_recorder_cui import __version__
 from task_recorder_cui.commands import add as add_cmd
+from task_recorder_cui.commands import all as all_cmd
+from task_recorder_cui.commands import month as month_cmd
 from task_recorder_cui.commands import now as now_cmd
+from task_recorder_cui.commands import range as range_cmd
 from task_recorder_cui.commands import start as start_cmd
 from task_recorder_cui.commands import stop as stop_cmd
+from task_recorder_cui.commands import today as today_cmd
+from task_recorder_cui.commands import week as week_cmd
 from task_recorder_cui.io import print_line
-
-_SUBCOMMAND_PHASE: dict[str, str] = {
-    "today": "Phase 4",
-    "week": "Phase 4",
-    "month": "Phase 4",
-}
 
 _CAT_PHASE = "Phase 5"
 _MENU_PHASE = "Phase 6"
@@ -75,8 +74,24 @@ def build_parser() -> argparse.ArgumentParser:
 
     # --- 参照系 ---
     sub.add_parser("today", help="今日の記録一覧")
-    sub.add_parser("week", help="直近7日の集計")
-    sub.add_parser("month", help="直近30日の集計")
+    p_week = sub.add_parser("week", help="直近7日 (default) または今週 (--calendar)")
+    p_week.add_argument(
+        "--calendar",
+        action="store_true",
+        help="月曜〜今日の今週集計にする",
+    )
+    p_month = sub.add_parser("month", help="直近30日 (default) または今月 (--calendar)")
+    p_month.add_argument(
+        "--calendar",
+        action="store_true",
+        help="今月1日〜今日の集計にする",
+    )
+    p_range = sub.add_parser("range", help="任意期間の集計")
+    p_range.add_argument("--from", dest="from_date", required=True, help="開始日 YYYY-MM-DD")
+    p_range.add_argument(
+        "--to", dest="to_date", required=True, help="終了日 YYYY-MM-DD (inclusive)"
+    )
+    sub.add_parser("all", help="全累計")
 
     # --- カテゴリ管理 ---
     p_cat = sub.add_parser("cat", help="カテゴリ管理")
@@ -116,7 +131,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.command is None:
         return _not_implemented("インタラクティブメニュー", _MENU_PHASE)
 
-    # --- 記録系 (Phase 3 実装済) ---
+    # --- 記録系 (Phase 3) ---
     if args.command == "start":
         return start_cmd.run(args.category_key, args.description)
     if args.command == "stop":
@@ -126,9 +141,20 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "add":
         return add_cmd.run(args.category_key, args.minutes, args.description)
 
+    # --- 参照系 (Phase 4) ---
+    if args.command == "today":
+        return today_cmd.run()
+    if args.command == "week":
+        return week_cmd.run(calendar=args.calendar)
+    if args.command == "month":
+        return month_cmd.run(calendar=args.calendar)
+    if args.command == "range":
+        return range_cmd.run(args.from_date, args.to_date)
+    if args.command == "all":
+        return all_cmd.run()
+
     # --- 未実装スタブ ---
     if args.command == "cat":
         return _not_implemented(f"tsk cat {args.cat_action}", _CAT_PHASE)
 
-    phase = _SUBCOMMAND_PHASE.get(args.command, "未定")
-    return _not_implemented(f"tsk {args.command}", phase)
+    return _not_implemented(f"tsk {args.command}", "未定")
