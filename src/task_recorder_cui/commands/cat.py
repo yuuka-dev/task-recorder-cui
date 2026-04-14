@@ -4,6 +4,7 @@
 """
 
 from rich.box import SIMPLE
+from rich.markup import escape
 from rich.table import Table
 
 from task_recorder_cui.db import open_db
@@ -46,7 +47,7 @@ def list_categories(*, active_only: bool = False, archived_only: bool = False) -
     table.add_column("表示名")
     table.add_column("archived", justify="center")
     for cat in categories:
-        table.add_row(cat.key, cat.display_name, "✓" if cat.archived else "")
+        table.add_row(escape(cat.key), escape(cat.display_name), "✓" if cat.archived else "")
     print_table(table)
     return 0
 
@@ -87,14 +88,14 @@ def add_category(key: str, display_name: str) -> int:
                 update_category_archived(conn, key, archived=False)
                 update_category_display_name(conn, key, display_name)
             print_line(
-                f"再有効化: {key} → '{display_name}' "
+                f"再有効化: {key} → '{escape(display_name)}' "
                 "(以前 archived だったカテゴリを復帰、display_name を上書き)"
             )
             return 0
 
         with conn:
             insert_category(conn, key, display_name)
-    print_line(f"追加: {key} → '{display_name}'")
+    print_line(f"追加: {key} → '{escape(display_name)}'")
     return 0
 
 
@@ -118,7 +119,7 @@ def remove_category(key: str) -> int:
             return 0
         with conn:
             update_category_archived(conn, key, archived=True)
-    print_line(f"アーカイブ: {key} ('{existing.display_name}')")
+    print_line(f"アーカイブ: {key} ('{escape(existing.display_name)}')")
     return 0
 
 
@@ -142,7 +143,7 @@ def restore_category(key: str) -> int:
             return 0
         with conn:
             update_category_archived(conn, key, archived=False)
-    print_line(f"復帰: {key} ('{existing.display_name}')")
+    print_line(f"復帰: {key} ('{escape(existing.display_name)}')")
     return 0
 
 
@@ -167,5 +168,5 @@ def rename_category(key: str, new_display_name: str) -> int:
             return 1
         with conn:
             update_category_display_name(conn, key, new_display_name)
-    print_line(f"変更: {key} '{existing.display_name}' → '{new_display_name}'")
+    print_line(f"変更: {key} '{escape(existing.display_name)}' → '{escape(new_display_name)}'")
     return 0

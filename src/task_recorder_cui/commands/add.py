@@ -35,7 +35,7 @@ def run(category_key: str, minutes: int, description: str | None) -> int:
             return 1
         if category.archived:
             print_error(
-                f"カテゴリ '{category_key}' はアーカイブ済みです。"
+                f"カテゴリ '{category_key}' はアーカイブ済みです。 "
                 f"`tsk cat restore {category_key}` または "
                 f"`tsk cat add {category_key} <display_name>` で復帰させてください"
             )

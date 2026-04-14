@@ -68,7 +68,12 @@ def list_all_categories(
     Returns:
         Category のリスト。
 
+    Raises:
+        ValueError: active_only と archived_only が同時に True の場合。
+
     """
+    if active_only and archived_only:
+        raise ValueError("active_only と archived_only を同時に True にはできません")
     if active_only:
         rows = conn.execute("SELECT * FROM categories WHERE archived = 0 ORDER BY id").fetchall()
     elif archived_only:
