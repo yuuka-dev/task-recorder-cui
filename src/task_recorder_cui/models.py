@@ -17,6 +17,7 @@ class Category:
         display_name: 表示名 (日本語可)。
         created_at: 作成日時 (tz付き)。
         archived: アーカイブ済みなら True (メニューには出ないが集計には含まれる)。
+
     """
 
     id: int
@@ -39,6 +40,7 @@ class Record:
         started_at: 開始時刻 (tz付き)。
         ended_at: 終了時刻 (記録中ならNone)。
         duration_minutes: 記録時間の分数 (記録中ならNone)。
+
     """
 
     id: int

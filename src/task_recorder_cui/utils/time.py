@@ -12,6 +12,7 @@ def now_utc() -> datetime:
 
     Returns:
         tz=UTC の現在時刻。
+
     """
     return datetime.now(UTC)
 
@@ -21,6 +22,7 @@ def now_local() -> datetime:
 
     Returns:
         tz付きの現在時刻 (システムのlocal tz)。
+
     """
     return datetime.now().astimezone()
 
@@ -36,6 +38,7 @@ def to_iso(dt: datetime) -> str:
 
     Raises:
         ValueError: naiveなdatetimeが渡された場合。
+
     """
     if dt.tzinfo is None:
         raise ValueError("naive datetime is not allowed; use timezone-aware datetime")
@@ -56,6 +59,7 @@ def from_iso(s: str) -> datetime:
 
     Raises:
         ValueError: tz情報を持たないISO8601文字列の場合、または不正な形式の場合。
+
     """
     dt = datetime.fromisoformat(s)
     if dt.tzinfo is None:
@@ -76,6 +80,7 @@ def format_duration(minutes: int) -> str:
 
     Raises:
         ValueError: minutes が負の場合。
+
     """
     if minutes < 0:
         raise ValueError(f"minutes must be non-negative: {minutes}")
