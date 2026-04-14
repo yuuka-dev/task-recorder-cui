@@ -2,6 +2,8 @@
 
 import sqlite3
 
+from rich.markup import escape
+
 from task_recorder_cui.db import open_db
 from task_recorder_cui.io import print_error, print_line, print_warning
 from task_recorder_cui.models import Record
@@ -45,8 +47,8 @@ def run(category_key: str, description: str | None) -> int:
         display_name = category.display_name
 
     local_hm = started_at.astimezone().strftime("%H:%M")
-    detail = f" {description}" if description else ""
-    print_line(f"開始: [{display_name}]{detail} ({local_hm}-)")
+    detail = f" {escape(description)}" if description else ""
+    print_line(f"開始: [{escape(display_name)}]{detail} ({local_hm}-)")
     return 0
 
 

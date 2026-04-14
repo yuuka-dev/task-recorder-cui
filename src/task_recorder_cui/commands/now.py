@@ -1,5 +1,7 @@
 """tsk now: 記録中のセッションを経過時間付きで表示する。"""
 
+from rich.markup import escape
+
 from task_recorder_cui.db import open_db
 from task_recorder_cui.io import print_line
 from task_recorder_cui.repo import find_active_record, find_category
@@ -23,7 +25,7 @@ def run() -> int:
 
     elapsed_min = int((now_utc() - active.started_at).total_seconds() / 60)
     started_hm = active.started_at.astimezone().strftime("%H:%M")
-    detail = f" {active.description}" if active.description else ""
-    print_line(f"現在: [{display}]{detail} ({format_duration(elapsed_min)}経過)")
+    detail = f" {escape(active.description)}" if active.description else ""
+    print_line(f"現在: [{escape(display)}]{detail} ({format_duration(elapsed_min)}経過)")
     print_line(f"開始: {started_hm}")
     return 0

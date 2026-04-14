@@ -1,5 +1,7 @@
 """tsk stop: 記録中のセッションを終了する。"""
 
+from rich.markup import escape
+
 from task_recorder_cui.db import open_db
 from task_recorder_cui.io import print_line
 from task_recorder_cui.repo import find_active_record, find_category, update_record_end
@@ -29,6 +31,8 @@ def run() -> int:
 
     started_hm = active.started_at.astimezone().strftime("%H:%M")
     ended_hm = ended_at.astimezone().strftime("%H:%M")
-    detail = f" {active.description}" if active.description else ""
-    print_line(f"停止: [{display}]{detail} ({started_hm}-{ended_hm}, {format_duration(duration)})")
+    detail = f" {escape(active.description)}" if active.description else ""
+    print_line(
+        f"停止: [{escape(display)}]{detail} ({started_hm}-{ended_hm}, {format_duration(duration)})"
+    )
     return 0

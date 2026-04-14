@@ -2,6 +2,8 @@
 
 from datetime import timedelta
 
+from rich.markup import escape
+
 from task_recorder_cui.db import open_db
 from task_recorder_cui.io import print_error, print_line
 from task_recorder_cui.repo import find_category, insert_record
@@ -46,8 +48,9 @@ def run(category_key: str, minutes: int, description: str | None) -> int:
 
     started_hm = started_at.astimezone().strftime("%H:%M")
     ended_hm = ended_at.astimezone().strftime("%H:%M")
-    detail = f" {description}" if description else ""
+    detail = f" {escape(description)}" if description else ""
     print_line(
-        f"追加: [{display_name}]{detail} ({started_hm}-{ended_hm}, {format_duration(minutes)})"
+        f"追加: [{escape(display_name)}]{detail}"
+        f" ({started_hm}-{ended_hm}, {format_duration(minutes)})"
     )
     return 0
