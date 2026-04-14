@@ -20,6 +20,8 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
     "ruff",
+    "pytest",
+    "pytest-cov",
     "jupyterlab",
     "pandas",
 ]
@@ -33,11 +35,49 @@ where = ["src"]
 [tool.ruff]
 line-length = 100
 target-version = "py311"
+indent-width = 4
 
 [tool.ruff.lint]
-select = ["E", "F", "W", "I", "N", "UP", "B", "C4", "SIM"]
-ignore = []
+select = ["E", "F", "W", "I", "N", "UP", "B", "C4", "SIM", "D"]
+ignore = [
+    "D100",  # Missing docstring in public module
+    "D101",  # Missing docstring in public class
+    "D203",  # 1 blank line required before class docstring (D211と競合)
+    "D213",  # Multi-line docstring summary should start at the second line (D212と競合)
+    # 日本語docstring方針との相性が悪いルール群
+    "D400",  # First line should end with a period (日本語の "。" は対象外)
+    "D401",  # First line should be in imperative mood (英語前提)
+    "D403",  # First word of first line should be properly capitalized (英語前提)
+    "D415",  # First line should end with ., ?, ! (日本語の "。" は対象外)
+]
+fixable = ["ALL"]
+
+[tool.ruff.lint.per-file-ignores]
+# テスト関数名は日本語を許容し、名前自体が自己説明的なのでdocstring強制しない
+"tests/**.py" = ["N802", "D102", "D103"]
+# 空の __init__.py は単なるパッケージマーカー
+"**/__init__.py" = ["D104"]
+
+[tool.ruff.lint.isort]
+section-order = ["future", "standard-library", "third-party", "first-party", "local-folder"]
+known-first-party = ["task_recorder_cui"]
 
 [tool.ruff.format]
 quote-style = "double"
 indent-style = "space"
+skip-magic-trailing-comma = false
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra -q"
+
+[tool.coverage.run]
+source = ["task_recorder_cui"]
+branch = true
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "if __name__ == .__main__.:",
+    "raise NotImplementedError",
+]
