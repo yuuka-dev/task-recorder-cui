@@ -46,6 +46,28 @@ def run() -> int:
 - ループ中の Ctrl+C は continue してメニューを再描画
 - 非インタラクティブ環境 (パイプ経由等) で `questionary` が失敗する場合は `KeyboardInterrupt` ではなく例外で落ちてよい (MVP)
 
+### 戻り値ポリシー
+
+`menu.run()` の戻り値は **常に 0** (メニューの正常終了を表す)。内部で呼ぶ `commands.*.run()` の戻り値は **意図的に捨てる**。理由:
+
+- メニューは対話的なラッパー層であり、単体のコマンド失敗 (例: 無効な key で start が 1 を返す) はユーザにメッセージを見せた上でメニューに戻るのが期待挙動。CLI のような「終了コードで成否を伝える」責務は持たない
+- メニュー全体としては「ユーザが自発的に終了 (`quit` / Ctrl+C / ESC) したか」だけが 0 / 非 0 の判断対象。MVP では例外時を除き常に 0
+
+この方針は `menu.run()` の docstring と README の該当節にも明記する。
+
+### `_pause()` の挙動
+
+```
+def _pause() -> None:
+    try:
+        input("\n[Enter で戻る]")
+    except (EOFError, KeyboardInterrupt):
+        pass
+```
+
+- Enter で戻る前に Ctrl+C / EOF を押されても **握りつぶしてメインループに戻す**。ここで例外を伝搬させると、メニュー全体が落ちてユーザ体験が悪い
+- `input` を使う唯一の箇所 (他は questionary 経由)
+
 ## ヘッダ描画
 
 ```
@@ -70,6 +92,7 @@ pure 関数:
   - 直近 `limit` 件を新しい順で取得し、`[<display>]<padding><desc><padding><duration>  <relative>` 形式で整形
   - description が NULL のときは空文字扱い
   - display_name の幅揃えは最大長を基準に space padding
+  - **前提**: データソースの `repo.list_recent_records` は `ended_at IS NOT NULL` (= 完了済み) のレコードのみを返す。壊れデータ (stop 済みで `ended_at` NULL) や手動 `add` の境界ケースも含め、この不変条件は repo 層の docstring で明示する
 - `_humanize_relative(when: datetime, now: datetime) -> str` (`utils/time.py`)
   - `NmNs` → 「N分前」、`NhNm` → 「N時間前」、昨日 → 「昨日」、2 日以上前 → 「N日前」
   - 未来は MVP では発生しない前提 (必要なら "まもなく" でも可)
@@ -144,6 +167,10 @@ pure 関数:
   1. active カテゴリを選択
   2. `questionary.text("新しい表示名", default=現在の display_name)` で入力
   3. `commands.cat.rename_category(key, new_display_name)`
+  - **将来対応候補 (MVP では実装しない)**:
+    - 空文字入力 → キャンセル扱い (何もしない + 「キャンセルしました」メッセージ)
+    - 現在名と同じ入力 → `print_line("変更はありません")` で早期 return
+    - MVP は素直に `rename_category` に投げて、既存コマンド側のバリデーションに任せる
 
 サブメニューも **ループ**。`back` 選択でメインメニューへ戻る。
 
@@ -181,6 +208,7 @@ tsk コマンド一覧
 
 - 手書きテキストで保持 (argparse の format_help は日本語・階層表示で見づらい)
 - 表示は `print_line(_HELP_TEXT)` → `_pause()` でメニューへ戻る
+- **責務の注意**: CLI の真実は `cli.py` / argparse 側で、`_HELP_TEXT` はあくまで人間向けチートシート。新しいサブコマンドや引数を `cli.py` に追加した時は **必ず `_HELP_TEXT` も更新する**。定数の直前に `# NOTE: CLI の仕様変更時はここも更新すること` というコメントを置く (将来の保守性のため)
 
 ## エラー処理・中断
 
