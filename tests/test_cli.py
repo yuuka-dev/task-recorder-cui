@@ -32,12 +32,6 @@ def test_サブコマンド無しはメニュースタブ(capsys: pytest.Capture
     assert "Phase 6" in capsys.readouterr().out
 
 
-def test_cat_addはPhase5スタブ(capsys: pytest.CaptureFixture[str]) -> None:
-    exit_code = main(["cat", "add", "reading", "読書"])
-    assert exit_code == 0
-    assert "Phase 5" in capsys.readouterr().out
-
-
 def test_catサブコマンド無しはexit2(capsys: pytest.CaptureFixture[str]) -> None:
     with pytest.raises(SystemExit) as ex:
         main(["cat"])

@@ -57,3 +57,13 @@ def test_既に記録中なら警告してexit1(isolated_db: Path, capsys: pytes
     assert "既に記録中" in capsys.readouterr().err
     rows = _fetch_records(isolated_db)
     assert len(rows) == 1  # 新しいレコードは作られない
+
+
+def test_archivedカテゴリはexit1(isolated_db: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    main(["cat", "remove", "game"])
+    capsys.readouterr()
+    exit_code = main(["start", "game", "archived試行"])
+    assert exit_code == 1
+    err = capsys.readouterr().err
+    assert "アーカイブ済み" in err
+    assert _fetch_records(isolated_db) == []
