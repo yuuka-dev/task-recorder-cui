@@ -6,9 +6,11 @@ pure 関数中心に当てる方針。
 """
 
 import contextlib
+import sqlite3
 from datetime import datetime
 
 import questionary
+from rich.markup import escape
 
 from task_recorder_cui.commands import cat as cat_cmd
 from task_recorder_cui.commands import month as month_cmd
@@ -27,50 +29,50 @@ from task_recorder_cui.repo import (
 from task_recorder_cui.utils.time import format_duration, humanize_relative, now_utc
 
 
-def _active_session_line(now: datetime) -> str:
+def _active_session_line(now: datetime, conn: sqlite3.Connection) -> str:
     """記録中セッションの 1 行表示を返す (副作用なし)。
 
     Args:
         now: 経過時間計算の基準時刻 (tz付き)。
+        conn: 読み取りに使う DB 接続。
 
     Returns:
         "現在: [<display>] <desc> (<経過>経過)" もしくは "現在: 記録なし"。
 
     """
-    with open_db() as conn:
-        active = find_active_record(conn)
-        if active is None:
-            return "現在: 記録なし"
-        category = find_category(conn, active.category_key)
-        display = category.display_name if category is not None else active.category_key
+    active = find_active_record(conn)
+    if active is None:
+        return "現在: 記録なし"
+    category = find_category(conn, active.category_key)
+    display = category.display_name if category is not None else active.category_key
 
     elapsed_minutes = max(0, int((now - active.started_at).total_seconds() // 60))
     elapsed = format_duration(elapsed_minutes)
     desc = active.description or ""
-    return f"現在: [{display}] {desc} ({elapsed}経過)"
+    return f"現在: [{escape(display)}] {escape(desc)} ({elapsed}経過)"
 
 
-def _recent_records_lines(now: datetime, limit: int = 5) -> list[str]:
+def _recent_records_lines(now: datetime, conn: sqlite3.Connection, limit: int = 5) -> list[str]:
     """直近の完了済みレコードを 1 行ずつ整形して返す (副作用なし)。
 
     Args:
         now: 相対時刻計算の基準時刻 (tz付き)。
+        conn: 読み取りに使う DB 接続。
         limit: 取得件数。
 
     Returns:
         各行は "  [<display>] <desc>  <duration>  <relative>" 形式。
 
     """
-    with open_db() as conn:
-        records = list_recent_records(conn, limit)
-        if not records:
-            return []
-        cats = {c.key: c.display_name for c in list_all_categories(conn)}
+    records = list_recent_records(conn, limit)
+    if not records:
+        return []
+    cats = {c.key: c.display_name for c in list_all_categories(conn)}
 
     lines: list[str] = []
     for r in records:
-        display = cats.get(r.category_key, r.category_key)
-        desc = r.description or ""
+        display = escape(cats.get(r.category_key, r.category_key))
+        desc = escape(r.description or "")
         duration = format_duration(r.duration_minutes or 0)
         relative = humanize_relative(r.started_at, now)
         lines.append(f"  [{display}] {desc}  {duration}  {relative}")
@@ -106,13 +108,13 @@ _HELP_TEXT = """tsk コマンド一覧
 """
 
 
-def _render_header(now: datetime) -> None:
+def _render_header(now: datetime, conn: sqlite3.Connection) -> None:
     """ヘッダ (タイトル + 現在のセッション + 直近) を描画する。"""
     print_line()
     print_line("tsk - task recorder")
     print_line()
-    print_line(_active_session_line(now))
-    recent = _recent_records_lines(now)
+    print_line(_active_session_line(now, conn))
+    recent = _recent_records_lines(now, conn)
     if recent:
         print_line()
         print_line("直近:")
@@ -325,8 +327,8 @@ def run() -> int:
     """
     while True:
         now = now_utc()
-        _render_header(now)
         with open_db() as conn:
+            _render_header(now, conn)
             recording = find_active_record(conn) is not None
         choice = _show_main_menu(recording=recording)
         if choice is None or choice == "quit":

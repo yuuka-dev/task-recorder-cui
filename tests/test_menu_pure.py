@@ -13,7 +13,8 @@ def test_active_session_line_when_recording(isolated_db) -> None:
     with open_db() as conn, conn:
         insert_record(conn, category_key="dev", description="ObatLog実装", started_at=started)
 
-    line = _active_session_line(now)
+    with open_db() as conn:
+        line = _active_session_line(now, conn)
     assert "現在:" in line
     assert "[開発]" in line  # display_name が解決される
     assert "ObatLog実装" in line
@@ -27,20 +28,23 @@ def test_active_session_line_when_no_description(isolated_db) -> None:
     with open_db() as conn, conn:
         insert_record(conn, category_key="game", description=None, started_at=started)
 
-    line = _active_session_line(now)
+    with open_db() as conn:
+        line = _active_session_line(now, conn)
     assert "[ゲーム]" in line
     assert "10m" in line
 
 
 def test_active_session_line_when_idle(isolated_db) -> None:
     now = datetime(2026, 4, 15, 12, 0, 0, tzinfo=UTC)
-    line = _active_session_line(now)
+    with open_db() as conn:
+        line = _active_session_line(now, conn)
     assert line == "現在: 記録なし"
 
 
 def test_recent_records_lines_empty(isolated_db) -> None:
     now = datetime(2026, 4, 15, 12, 0, 0, tzinfo=UTC)
-    lines = _recent_records_lines(now, limit=5)
+    with open_db() as conn:
+        lines = _recent_records_lines(now, conn, limit=5)
     assert lines == []
 
 
@@ -57,7 +61,8 @@ def test_recent_records_lines_format_and_order(isolated_db) -> None:
             duration = int((ended - started).total_seconds() // 60)
             update_record_end(conn, rec_id, ended_at=ended, duration_minutes=duration)
 
-    lines = _recent_records_lines(now, limit=5)
+    with open_db() as conn:
+        lines = _recent_records_lines(now, conn, limit=5)
     assert len(lines) == 3
     # 新しい順
     assert "item-2" in lines[0]
@@ -85,5 +90,6 @@ def test_recent_records_lines_respects_limit(isolated_db) -> None:
             duration = int((ended - started).total_seconds() // 60)
             update_record_end(conn, rec_id, ended_at=ended, duration_minutes=duration)
 
-    lines = _recent_records_lines(now, limit=3)
+    with open_db() as conn:
+        lines = _recent_records_lines(now, conn, limit=3)
     assert len(lines) == 3
