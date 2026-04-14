@@ -10,7 +10,9 @@ from datetime import datetime
 
 import questionary
 
+from task_recorder_cui.commands import cat as cat_cmd
 from task_recorder_cui.commands import month as month_cmd
+from task_recorder_cui.commands import start as start_cmd
 from task_recorder_cui.commands import stop as stop_cmd
 from task_recorder_cui.commands import today as today_cmd
 from task_recorder_cui.commands import week as week_cmd
@@ -149,13 +151,139 @@ def _show_help() -> None:
 
 
 def _start_flow() -> None:
-    """[Task 5 で本実装] カテゴリ選択 → description 入力 → start 実行。"""
-    print_line("(start フローは Task 5 で実装)")
+    """カテゴリ選択 → description 入力 → start 実行。
+
+    active カテゴリが 0 件なら案内のみ。キャンセル (Ctrl+C/ESC) で安全に戻る。
+    """
+    with open_db() as conn:
+        actives = list_all_categories(conn, active_only=True)
+
+    if not actives:
+        print_line("有効なカテゴリがありません。先に『カテゴリ管理 → 追加』してください。")
+        return
+
+    key = questionary.select(
+        "カテゴリを選んでください",
+        choices=[
+            questionary.Choice(title=f"{c.display_name} ({c.key})", value=c.key) for c in actives
+        ],
+    ).ask()
+    if key is None:
+        return
+
+    desc = questionary.text("何をしましたか (任意、空欄可)", default="").ask()
+    if desc is None:
+        return
+    desc_or_none: str | None = desc.strip() or None
+
+    start_cmd.run(key, desc_or_none)
 
 
 def _cat_submenu() -> None:
-    """[Task 5 で本実装] カテゴリ管理サブメニュー。"""
-    print_line("(カテゴリ管理サブメニューは Task 5 で実装)")
+    """カテゴリ管理サブメニュー (list/add/remove/restore/rename/back のループ)。"""
+    while True:
+        action = questionary.select(
+            "カテゴリ管理",
+            choices=[
+                questionary.Choice("一覧表示", value="list"),
+                questionary.Choice("追加", value="add"),
+                questionary.Choice("アーカイブ", value="remove"),
+                questionary.Choice("アーカイブから復帰", value="restore"),
+                questionary.Choice("表示名を変更", value="rename"),
+                questionary.Choice("← 戻る", value="back"),
+            ],
+        ).ask()
+        if action is None or action == "back":
+            return
+
+        if action == "list":
+            cat_cmd.list_categories(active_only=False, archived_only=False)
+        elif action == "add":
+            _cat_add()
+        elif action == "remove":
+            _cat_remove()
+        elif action == "restore":
+            _cat_restore()
+        elif action == "rename":
+            _cat_rename()
+
+        _pause()
+
+
+def _cat_add() -> None:
+    """カテゴリ追加 (key / display_name を順に入力)。"""
+    key = questionary.text("新しいカテゴリキー (ASCII 英小文字・数字・_)").ask()
+    if key is None or not key.strip():
+        return
+    display_name = questionary.text("表示名").ask()
+    if display_name is None or not display_name.strip():
+        return
+    cat_cmd.add_category(key.strip(), display_name.strip())
+
+
+def _cat_remove() -> None:
+    """カテゴリのアーカイブ (active から選択 → confirm)。"""
+    with open_db() as conn:
+        actives = list_all_categories(conn, active_only=True)
+    if not actives:
+        print_line("active なカテゴリがありません")
+        return
+    key = questionary.select(
+        "アーカイブするカテゴリを選んでください",
+        choices=[
+            questionary.Choice(title=f"{c.display_name} ({c.key})", value=c.key) for c in actives
+        ],
+    ).ask()
+    if key is None:
+        return
+    target = next(c for c in actives if c.key == key)
+    confirmed = questionary.confirm(
+        f"{target.display_name} ({target.key}) をアーカイブしますか？",
+        default=False,
+    ).ask()
+    if not confirmed:
+        return
+    cat_cmd.remove_category(key)
+
+
+def _cat_restore() -> None:
+    """archived カテゴリの復帰。"""
+    with open_db() as conn:
+        archived = list_all_categories(conn, archived_only=True)
+    if not archived:
+        print_line("archived なカテゴリがありません")
+        return
+    key = questionary.select(
+        "復帰させるカテゴリを選んでください",
+        choices=[
+            questionary.Choice(title=f"{c.display_name} ({c.key})", value=c.key) for c in archived
+        ],
+    ).ask()
+    if key is None:
+        return
+    cat_cmd.restore_category(key)
+
+
+def _cat_rename() -> None:
+    """display_name の変更 (active から選択 → 新名入力)。"""
+    with open_db() as conn:
+        actives = list_all_categories(conn, active_only=True)
+    if not actives:
+        print_line("active なカテゴリがありません")
+        return
+    key = questionary.select(
+        "表示名を変更するカテゴリを選んでください",
+        choices=[
+            questionary.Choice(title=f"{c.display_name} ({c.key})", value=c.key) for c in actives
+        ],
+    ).ask()
+    if key is None:
+        return
+    target = next(c for c in actives if c.key == key)
+    new_name = questionary.text("新しい表示名", default=target.display_name).ask()
+    if new_name is None or not new_name.strip():
+        return
+    cat_cmd.rename_category(key, new_name.strip())
 
 
 def _dispatch(choice: str) -> None:
@@ -208,4 +336,7 @@ def run() -> int:
         except KeyboardInterrupt:
             print_line("(中断しました)")
             continue
-        _pause()
+        # カテゴリ管理は submenu 側で各アクション後に _pause するため、
+        # 戻った直後に再度 Enter 要求するのは UX 的に冗長。
+        if choice != "cat":
+            _pause()
