@@ -3,7 +3,7 @@
 本モジュールはサブコマンドの受け口 (parser) と main ディスパッチャを持つ。
 記録系 (start/stop/now/add)、参照系 (today/week/month/range/all)、カテゴリ管理
 (cat ...) は commands/ 配下の実装に dispatch する。インタラクティブメニューは
-Phase 6 まで未実装スタブで応答する。
+`menu.run()` に dispatch する。
 """
 
 import argparse
@@ -19,24 +19,6 @@ from task_recorder_cui.commands import start as start_cmd
 from task_recorder_cui.commands import stop as stop_cmd
 from task_recorder_cui.commands import today as today_cmd
 from task_recorder_cui.commands import week as week_cmd
-from task_recorder_cui.io import print_line
-
-_MENU_PHASE = "Phase 6"
-
-
-def _not_implemented(feature: str, phase: str) -> int:
-    """未実装コマンド用のスタブ応答。
-
-    Args:
-        feature: 機能名 (ユーザ向け表示)。
-        phase: 実装予定のフェーズ名。
-
-    Returns:
-        常に 0 (エラー扱いしない)。
-
-    """
-    print_line(f"({feature} は {phase} で実装予定)")
-    return 0
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -138,7 +120,9 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     if args.command is None:
-        return _not_implemented("インタラクティブメニュー", _MENU_PHASE)
+        from task_recorder_cui.menu import run as menu_run
+
+        return menu_run()
 
     # --- 記録系 (Phase 3) ---
     if args.command == "start":
@@ -175,4 +159,4 @@ def main(argv: list[str] | None = None) -> int:
         if args.cat_action == "rename":
             return cat_cmd.rename_category(args.key, args.new_display_name)
 
-    return _not_implemented(f"tsk {args.command}", "未定")
+    return 0

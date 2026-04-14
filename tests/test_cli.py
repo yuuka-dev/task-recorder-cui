@@ -26,10 +26,18 @@ def test_helpは正常終了(capsys: pytest.CaptureFixture[str]) -> None:
     assert "tsk" in capsys.readouterr().out
 
 
-def test_サブコマンド無しはメニュースタブ(capsys: pytest.CaptureFixture[str]) -> None:
-    exit_code = main([])
-    assert exit_code == 0
-    assert "Phase 6" in capsys.readouterr().out
+def test_main_no_command_calls_menu(monkeypatch: pytest.MonkeyPatch) -> None:
+    called = {"n": 0}
+
+    def fake_run() -> int:
+        called["n"] += 1
+        return 0
+
+    monkeypatch.setattr("task_recorder_cui.menu.run", fake_run)
+
+    rc = main([])
+    assert rc == 0
+    assert called["n"] == 1
 
 
 def test_catサブコマンド無しはexit2(capsys: pytest.CaptureFixture[str]) -> None:
