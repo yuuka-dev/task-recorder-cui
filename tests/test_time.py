@@ -54,6 +54,10 @@ class TestIsoConversion:
         assert dt == datetime(2026, 4, 14, 12, 0, 0, tzinfo=UTC)
         assert dt.tzinfo is not None
 
+    def test_tz情報の無いISO8601はValueError(self) -> None:
+        with pytest.raises(ValueError):
+            from_iso("2026-04-14T12:00:00")
+
 
 class TestNow:
     """現在時刻取得関数。"""

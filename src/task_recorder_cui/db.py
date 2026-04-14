@@ -68,23 +68,28 @@ def connect(db_path: Path | None = None) -> sqlite3.Connection:
     path.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(path)
     conn.row_factory = sqlite3.Row
+    # 設計方針: FK制約は現状張らない (CLAUDE.md「設計メモ」参照)。
+    # 将来FKを追加する場合は conn.execute("PRAGMA foreign_keys = ON") を有効化する。
     return conn
 
 
 def initialize(conn: sqlite3.Connection) -> None:
     """スキーマを適用し、初回なら初期カテゴリを投入する。
 
-    複数回呼んでも安全 (冪等)。
+    複数回呼んでも安全 (冪等)。初期データ投入はトランザクション内で行い、
+    失敗時は自動ロールバックされる。
 
     Args:
         conn: 対象のSQLite接続。
     """
+    # DDL は executescript が暗黙コミットする (Python標準仕様)。
     conn.executescript(_SCHEMA)
-    existing = conn.execute("SELECT COUNT(*) FROM categories").fetchone()[0]
-    if existing == 0:
-        now_iso = to_iso(now_utc())
-        conn.executemany(
-            "INSERT INTO categories (key, display_name, created_at) VALUES (?, ?, ?)",
-            [(key, name, now_iso) for key, name in INITIAL_CATEGORIES],
-        )
-    conn.commit()
+    # 初期データはアトミックに投入する (with conn: BEGIN / COMMIT / ROLLBACK)。
+    with conn:
+        existing = conn.execute("SELECT COUNT(*) FROM categories").fetchone()[0]
+        if existing == 0:
+            now_iso = to_iso(now_utc())
+            conn.executemany(
+                "INSERT INTO categories (key, display_name, created_at) VALUES (?, ?, ?)",
+                [(key, name, now_iso) for key, name in INITIAL_CATEGORIES],
+            )

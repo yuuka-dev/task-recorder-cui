@@ -14,6 +14,8 @@ def validate_category_key(key: str) -> None:
     Raises:
         ValueError: 不正なkeyの場合。
     """
+    if not key:
+        raise ValueError("category key は空にできません")
     if not _CATEGORY_KEY_PATTERN.match(key):
         raise ValueError(
             f"category key must match [a-z0-9_]+ (ASCII lowercase/digit/underscore): {key!r}"

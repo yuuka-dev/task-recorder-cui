@@ -45,15 +45,21 @@ def to_iso(dt: datetime) -> str:
 def from_iso(s: str) -> datetime:
     """ISO8601文字列をtz付きdatetimeに変換する。
 
+    DBへの書き込みは必ずtz付き文字列で行う方針 (`to_iso` を通す) のため、
+    tz情報を持たない文字列が来た場合は暗黙変換せず `ValueError` を投げる。
+
     Args:
-        s: ISO8601形式の文字列。
+        s: ISO8601形式の文字列 (tz情報必須)。
 
     Returns:
-        tz付きdatetime。tz情報が無い場合はUTCとみなす。
+        tz付きdatetime。
+
+    Raises:
+        ValueError: tz情報を持たないISO8601文字列の場合、または不正な形式の場合。
     """
     dt = datetime.fromisoformat(s)
     if dt.tzinfo is None:
-        dt = dt.replace(tzinfo=UTC)
+        raise ValueError(f"ISO8601文字列にtz情報がありません: {s!r}")
     return dt
 
 
