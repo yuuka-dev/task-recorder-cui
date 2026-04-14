@@ -1,6 +1,6 @@
 """commands/_summary.py のユニットテスト。"""
 
-from datetime import timedelta
+from datetime import datetime, timedelta
 from pathlib import Path
 
 from task_recorder_cui.commands._summary import (
@@ -11,10 +11,8 @@ from task_recorder_cui.db import open_db
 from task_recorder_cui.repo import insert_record
 
 
-def _local_noon():
+def _local_noon() -> datetime:
     """テスト用: 今日のローカル正午 (tz付き)。日付境界のテスト不安定を防ぐ。"""
-    from datetime import datetime
-
     return datetime.now().astimezone().replace(hour=12, minute=0, second=0, microsecond=0)
 
 
