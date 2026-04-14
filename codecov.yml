@@ -5,9 +5,18 @@ coverage:
         target: 80%
         threshold: 2%
     patch:
+      # menu.py (UI 層) は questionary を呼ぶだけの関数群が大半で単体テストのコスパが
+      # 悪い。default patch から除外し、別枠の menu status で緩い閾値を適用する。
       default:
         target: 70%
         threshold: 5%
+        paths:
+          - "!src/task_recorder_cui/menu.py"
+      menu:
+        target: 30%
+        threshold: 5%
+        paths:
+          - "src/task_recorder_cui/menu.py"
 
 comment:
   layout: "reach, diff, flags, files"
