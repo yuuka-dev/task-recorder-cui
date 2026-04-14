@@ -7,6 +7,7 @@
 
 from rich.console import Console
 from rich.markup import escape
+from rich.table import Table
 
 _console = Console(highlight=False)
 _err_console = Console(stderr=True, highlight=False)
@@ -15,6 +16,11 @@ _err_console = Console(stderr=True, highlight=False)
 def print_line(msg: str = "") -> None:
     """通常の標準出力に1行出力する (情報表示の共通エントリ)。"""
     _console.print(msg)
+
+
+def print_table(table: Table) -> None:
+    """rich.Table を標準出力に描画する (CJK幅の自動調整に対応)。"""
+    _console.print(table)
 
 
 def print_warning(msg: str) -> None:
