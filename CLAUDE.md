@@ -15,9 +15,10 @@
 
 ## 技術スタック
 - Python 3.11+
-- SQLite (標準ライブラリのsqlite3、追加依存なし)
-- CLI: argparse
-- インタラクティブメニュー: input() で実装 (TUIライブラリは使わない)
+- SQLite (標準ライブラリ `sqlite3`)
+- CLI パーサ: `argparse` (標準ライブラリ)
+- 出力整形: `rich` (Table の CJK 幅吸収・マークアップエスケープ)
+- インタラクティブメニュー: `questionary` (矢印キーで選択する軽量 prompt。フルスクリーン TUI は使わない)
 - 環境: WSL2 Ubuntu
 - パッケージ管理: pyproject.toml + pip install -e .
 
@@ -57,6 +58,7 @@ SQLiteファイル1個で完結: `~/.local/share/tsk/records.db`
 - **category_key は TEXT で保持 (正規化しない)**: CUI段階ではJOINレスで扱える方が実装がシンプル。Android版移植時にRoomのリレーションで綺麗にすることは可能。
 - **archived は物理削除しない**: 過去レコードが参照しているkeyを消すと履歴集計が壊れるため。アーカイブはメニュー表示から消えるだけで、`tsk week` 等の集計には含まれ続ける。
 - **時刻は全てISO8601文字列で保存、コード内ではdatetime(timezone-aware)で扱う**。
+- **層構造**: `cli/menu` → `commands/*` → `repo.py` → `db.py` (sqlite3) の順。`commands/` から直接 SQL は書かず `repo.py` 経由にする。
 
 ## CLIサブコマンド (MVP)
 
@@ -81,6 +83,10 @@ SQLiteファイル1個で完結: `~/.local/share/tsk/records.db`
   - 直近7日の日別内訳 + 週合計 + カテゴリ別平均
 - `tsk month`
   - 直近30日の同様の集計
+- `tsk range <from> <to>`
+  - 例: `tsk range 2026-04-01 2026-04-14` (任意期間の日別・カテゴリ別集計)
+- `tsk all`
+  - 全累計 (カテゴリ別内訳 + 日平均)
 
 ### カテゴリ管理
 - `tsk cat list`
@@ -156,6 +162,27 @@ SQLiteファイル1個で完結: `~/.local/share/tsk/records.db`
 開発:   12h47m (44%) / 日平均 1h49m
 学習:   5h00m  (17%) / 日平均 43m
 ```
+## 開発コマンド
+
+```bash
+# セットアップ
+pip install -e ".[dev]"
+
+# 実行
+tsk                              # インタラクティブメニュー
+python -m task_recorder_cui      # 同上 (コンソールスクリプト未インストール時)
+
+# テスト
+pytest                           # 全テスト
+pytest --cov                     # カバレッジ付き (Codecov 用)
+pytest tests/test_menu_pure.py -v  # 単体ファイル
+
+# Lint / Format (ruff 一本)
+ruff check .                     # 静的解析
+ruff check . --fix               # 自動修正
+ruff format .                    # フォーマット
+```
+
 ## コーディング規約
 - 型ヒント必須 (Python 3.11+ syntax、`list[str]`などのbuiltin generic使用)
 - docstringの方針:
@@ -201,14 +228,17 @@ task-recorder-cui/
 ├── pyproject.toml
 ├── src/
 │   └── task_recorder_cui/
-│       ├── init.py
+│       ├── __init__.py
+│       ├── __main__.py         # python -m 用エントリ
 │       ├── main.py
 │       ├── cli.py              # argparse エントリポイント
 │       ├── menu.py             # インタラクティブメニュー
 │       ├── db.py               # SQLite初期化、マイグレーション
 │       ├── models.py           # dataclass定義
 │       ├── io.py               # 出力用関数
+│       ├── repo.py             # Repository層 (commands から呼ぶ CRUD/集計)
 │       ├── commands/
+│       │   ├── _summary.py     # today/week/month/range/all 共通ロジック
 │       │   ├── start.py
 │       │   ├── stop.py
 │       │   ├── add.py
@@ -216,12 +246,14 @@ task-recorder-cui/
 │       │   ├── today.py
 │       │   ├── week.py
 │       │   ├── month.py
+│       │   ├── range.py        # 任意期間集計
+│       │   ├── all.py          # 全累計
 │       │   └── cat.py
 │       └── utils/
 │           ├── time.py         # 時刻フォーマット、duration計算
 │           └── validate.py     # keyの検証等
 └── tests/
-└── (最小限のテストのみ)
+    └── (pytest + pytest-cov、全コマンド & 純粋関数を網羅)
 ```
 ## やらないこと (スコープ外)
 
@@ -247,6 +279,9 @@ task-recorder-cui/
 MIT (予定、pyproject.tomlに記載)
 
 ## 開発ノート
+- 機能追加前に `docs/superpowers/specs/YYYY-MM-DD-<feature>-design.md` で設計書、`docs/superpowers/plans/YYYY-MM-DD-<feature>.md` で実装計画を書く (superpowers:writing-plans)
 - 最初のコミットはCLAUDE.mdとpyproject.tomlのみ、それから実装に入る
 - コミットは機能単位で小さく切る (DB初期化 → start実装 → stop実装 → ...)
-- テストは各コマンドの正常系1ケースずつで十分、MVPでは網羅性より動くことを優先
+- テストは pytest ベース、`tests/test_*.py` にコマンド単位で配置
+- 純粋関数 (menu の `_active_session_line` 等、`utils/time` 等) はユニットテスト必須
+- CI (`.github/workflows/ci.yml`) で pytest + ruff + Codecov アップロード
