@@ -1,5 +1,7 @@
 """tsk today: 今日の記録一覧と合計を表示する。"""
 
+from rich.markup import escape
+
 from task_recorder_cui.commands._summary import (
     WEEKDAY_EN,
     aggregate_period,
@@ -54,7 +56,7 @@ def run() -> int:
         started_hm = rec.started_at.astimezone().strftime("%H:%M")
         display = display_names.get(rec.category_key, rec.category_key)
         desc = rec.description or ""
-        label = f"[{display}] {desc}".rstrip()
+        label = f"[{escape(display)}] {escape(desc)}".rstrip()
 
         if rec.ended_at is not None and rec.duration_minutes is not None:
             ended_hm = rec.ended_at.astimezone().strftime("%H:%M")

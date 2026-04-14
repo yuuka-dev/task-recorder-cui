@@ -23,7 +23,7 @@ def run() -> int:
         category = find_category(conn, active.category_key)
         display = category.display_name if category else active.category_key
 
-    elapsed_min = int((now_utc() - active.started_at).total_seconds() / 60)
+    elapsed_min = max(0, int((now_utc() - active.started_at).total_seconds() / 60))
     started_hm = active.started_at.astimezone().strftime("%H:%M")
     detail = f" {escape(active.description)}" if active.description else ""
     print_line(f"現在: [{escape(display)}]{detail} ({format_duration(elapsed_min)}経過)")

@@ -22,7 +22,7 @@ def run() -> int:
             return 1
 
         ended_at = now_utc()
-        duration = int((ended_at - active.started_at).total_seconds() / 60)
+        duration = max(0, int((ended_at - active.started_at).total_seconds() / 60))
         with conn:
             update_record_end(conn, active.id, ended_at=ended_at, duration_minutes=duration)
 

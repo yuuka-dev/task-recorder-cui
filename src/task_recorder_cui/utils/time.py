@@ -28,13 +28,16 @@ def now_local() -> datetime:
 
 
 def to_iso(dt: datetime) -> str:
-    """tz付きdatetimeをISO8601文字列に変換する。
+    """tz付きdatetimeをUTC正規化したISO8601文字列に変換する。
+
+    DB内のタイムスタンプを常にUTC表記で統一することで、
+    SQLの文字列大小比較・ORDER BYが正しく機能することを保証する。
 
     Args:
         dt: タイムゾーン情報を持つdatetime。
 
     Returns:
-        ISO8601形式の文字列 (例: '2026-04-14T12:00:00+00:00')。
+        UTC正規化されたISO8601形式の文字列 (例: '2026-04-14T12:00:00+00:00')。
 
     Raises:
         ValueError: naiveなdatetimeが渡された場合。
@@ -42,7 +45,7 @@ def to_iso(dt: datetime) -> str:
     """
     if dt.tzinfo is None:
         raise ValueError("naive datetime is not allowed; use timezone-aware datetime")
-    return dt.isoformat()
+    return dt.astimezone(UTC).isoformat()
 
 
 def from_iso(s: str) -> datetime:

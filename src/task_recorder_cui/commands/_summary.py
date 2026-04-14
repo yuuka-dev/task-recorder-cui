@@ -16,6 +16,7 @@ from dataclasses import dataclass
 from datetime import UTC, date, datetime, time, timedelta
 
 from rich.box import SIMPLE
+from rich.markup import escape
 from rich.table import Table
 
 from task_recorder_cui.io import print_line, print_table
@@ -190,7 +191,7 @@ def render_breakdown_table(summary: PeriodSummary, title: str) -> Table:
     table = Table(title=title, box=SIMPLE, show_edge=True, pad_edge=False)
     table.add_column("日付", justify="left", no_wrap=True)
     for key in keys:
-        table.add_column(summary.display_names.get(key, key), justify="right")
+        table.add_column(escape(summary.display_names.get(key, key)), justify="right")
     table.add_column("合計", justify="right", style="bold")
 
     for day in summary.days:
@@ -233,7 +234,7 @@ def render_category_totals(summary: PeriodSummary, *, with_daily_avg: bool = Fal
         minutes = summary.per_category_minutes[key]
         name = summary.display_names.get(key, key)
         pct = round(minutes * 100 / total) if total > 0 else 0
-        label = f"{name}:"
+        label = f"{escape(name)}:"
         duration = format_duration(minutes)
         percent = f"({pct}%)"
         if with_daily_avg:
