@@ -58,12 +58,11 @@ concurrency:
 
 単一ジョブ `test`、`ubuntu-latest`、Python 3.11 / 3.12 / 3.13 のマトリクス。`fail-fast: false` にして 1 バージョンの失敗で他を止めない。
 
-**permissions** (OIDC を使うためジョブレベルで付与):
+**permissions** (最小権限):
 
 ```yaml
 permissions:
   contents: read
-  id-token: write
 ```
 
 | ステップ | 内容 | 備考 |
@@ -74,20 +73,22 @@ permissions:
 | 4 | `ruff check .` | — |
 | 5 | `ruff format --check .` | フォーマット崩れで即 fail |
 | 6 | `pytest --cov=task_recorder_cui --cov-report=xml --cov-report=term` | `coverage.xml` が出力される |
-| 7 | `codecov/codecov-action@v5` | `if: matrix.python-version == '3.11'` / `use_oidc: true` / `files: ./coverage.xml` / `fail_ci_if_error: false` |
+| 7 | `codecov/codecov-action@v5` | `if: matrix.python-version == '3.11'` / `token: ${{ secrets.CODECOV_TOKEN }}` / `files: ./coverage.xml` / `fail_ci_if_error: false` |
 
 ### 重複アップロード防止
 
 カバレッジアップロードはマトリクスの 1 バージョン (3.11) でのみ行い、同一 commit に対する重複レポートを防ぐ。
 
-### Codecov 認証方式: OIDC (tokenless)
+### Codecov 認証方式: Repository Token
 
-codecov-action v4 以降は公開リポジトリであっても CODECOV_TOKEN を要求する仕様に変更されている。v5 で導入された OIDC 認証を採用し、Secret 管理不要で運用する。
+当初は OIDC (tokenless) を採用する方針だったが、実装後に Codecov 側のセットアップ UI が現時点で OIDC を推奨フローに載せておらず、オンボーディング (`Step 2: Get Repository Token`) が token 方式のみを案内する状態と判明したため、素直に token 方式へ切り替えた。
 
-- ワークフローで `permissions: id-token: write` を付与
-- ステップで `use_oidc: true` を指定
-- 事前準備: Codecov GitHub App をリポジトリにインストールして Codecov 側にリポジトリを登録する (一度だけ)。Secret/token の発行・登録は不要。
-- 万一 OIDC 経由のアップロードが失敗しても CI 全体をブロックしないよう `fail_ci_if_error: false` にしておく (初期導入期の安全弁)。
+- GitHub リポジトリ Settings → Secrets and variables → Actions で `CODECOV_TOKEN` を登録 (Codecov の onboarding Step 2 に表示される値)
+- ステップで `token: ${{ secrets.CODECOV_TOKEN }}` を指定
+- `permissions: id-token: write` は不要 (削除済み)
+- アップロード失敗で CI 全体を落とさないため `fail_ci_if_error: false` は維持
+
+将来 Codecov の UI / docs が OIDC 前提に変われば、Secret を消して `use_oidc: true` に戻せる。
 
 ## `pyproject.toml` の変更
 
@@ -150,8 +151,8 @@ dev deps に追加するので、既にローカルに `pip install -e ".[dev]"`
 
 ## リスク / 留意点
 
-1. **Codecov GitHub App のインストール前提**: OIDC アップロードが成功するには、Codecov 側でリポジトリが認識されている必要がある。初回 push 前にユーザが Codecov にログインして `yuuka-dev/task-recorder-cui` を有効化する必要がある。手順はコミットメッセージ・PR 本文に記載する。
-2. **OIDC 失敗時のフォールバック**: `fail_ci_if_error: false` にしているので、OIDC 認証が失敗してもテスト自体はパス扱い。実運用で何度も失敗するようなら token 方式 (`secrets.CODECOV_TOKEN`) に切り替える issue を起票する。
+1. **CODECOV_TOKEN の管理**: token 方式に切り替えたため `CODECOV_TOKEN` を GitHub Secrets に保持する必要がある。ローテーション時は Codecov 側で再発行 → GitHub Secrets を更新する運用。公開リポジトリなのでフォーク PR からのアップロードは Secret にアクセスできない点は想定内 (本家側 push で上書きされる)。
+2. **token 紛失時のフォールバック**: `fail_ci_if_error: false` にしているので、アップロード失敗でも CI 全体は通る。継続して失敗する場合は Secret 再発行 or workflow からステップ自体を一時無効化する。
 3. **既存コードの `ruff format --check` 通過**: 現時点の main が `ruff format` 済みであるかは未検証。CI を入れる前にローカルで `ruff format --check .` を走らせて、未フォーマットがあれば同 PR 内で `ruff format .` 結果をコミットする。
 4. **3.12 / 3.13 での挙動差**: 依存 (`rich`, `questionary`) のホイールは両版で供給されている見込みだが、最悪 3.13 で失敗した場合はマトリクスから一時的に 3.13 を除外し、issue を起票して追う。
 5. **カバレッジの急変**: 初回導入時にカバレッジが想定より低い可能性があるが、Phase 7 はしきい値 fail を入れない方針なのでブロック要因にはならない。
@@ -160,7 +161,7 @@ dev deps に追加するので、既にローカルに `pip install -e ".[dev]"`
 
 1. `pyproject.toml` の dev deps と coverage 設定を追加
 2. ローカルで `pip install -e ".[dev]"` → `ruff check .` / `ruff format --check .` / `pytest --cov` が通ることを確認 (必要なら `ruff format .` の結果もコミット)
-3. `.github/workflows/ci.yml` を追加 (`permissions` + `use_oidc: true`)
+3. `.github/workflows/ci.yml` を追加
 4. `README.md` のバッジとテスト節を更新
-5. **ユーザ手動**: Codecov に GitHub 連携でログインし、対象リポジトリを有効化
+5. **ユーザ手動**: Codecov に GitHub 連携でログインし、対象リポジトリの `CODECOV_TOKEN` を取得 → GitHub リポジトリの Settings → Secrets → Actions に登録
 6. push → PR 作成 → Actions グリーン + Codecov アップロード成功を確認 → マージはユーザが実施
