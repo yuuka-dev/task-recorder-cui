@@ -278,6 +278,7 @@ MVP (Phase 1-7) は v1.0.0 で完成。以降は以下の優先順で検討:
 - **Android 版**: 同じ SQLite スキーマを Room に移植
 - **Web ダッシュボード**: Next.js + Firestore (ObatLog スタック踏襲)
 - **ActivityWatch 連携**: 稼働時間比率を自動取得
+- **英語対応 (国際化)**: v1.0.0 で pyproject.toml の `description` は英語化済。以降のステップとして `README.en.md` 追加 → ツール本体の i18n (UI メッセージ / エラー文 / カテゴリ display_name の英語切替、`LANG=en` 対応) を検討
 
 ## ライセンス
 MIT (予定、pyproject.tomlに記載)
@@ -289,3 +290,18 @@ MIT (予定、pyproject.tomlに記載)
 - テストは pytest ベース、`tests/test_*.py` にコマンド単位で配置
 - 純粋関数 (menu の `_active_session_line` 等、`utils/time` 等) はユニットテスト必須
 - CI (`.github/workflows/ci.yml`) で pytest + ruff + Codecov アップロード
+
+## リリース・タグ打ち手順
+バージョン情報は 2 箇所に存在する。タグ打ち前に **両方** を揃えること:
+
+1. `pyproject.toml` の `[project].version`
+2. `src/task_recorder_cui/__init__.py` の `__version__`
+
+`tsk --version` は `__init__.py` を参照するため、ここを忘れると「pyproject は 1.0.0 なのに `tsk --version` が 0.1.0」のような乖離が起きる。
+
+タグ打ち時のチェックリスト:
+- [ ] 上記 2 箇所を新バージョンに更新
+- [ ] `pip install -e .` で再インストール後、`tsk --version` が新バージョンを返すことを確認
+- [ ] `chore(release): version を X.Y.Z に bump` でコミット
+- [ ] dev → main の release PR をマージ
+- [ ] `git tag vX.Y.Z` / `git push origin vX.Y.Z`

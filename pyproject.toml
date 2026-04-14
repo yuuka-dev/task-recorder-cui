@@ -5,12 +5,24 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "task-recorder-cui"
 version = "1.0.0"
-description = "日々の時間の使い方を記録するCUIツール"
+description = "Minimal, no-friction CUI time tracker with weekly and monthly summaries"
 readme = "README.md"
 requires-python = ">=3.11"
 license = "MIT"
 authors = [
     { name = "Yumeno Yuuka" },
+]
+keywords = ["time-tracking", "cli", "productivity", "sqlite"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Console",
+    "Intended Audience :: End Users/Desktop",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Office/Business :: Scheduling",
+    "Topic :: Utilities",
 ]
 dependencies = [
     "rich",
@@ -25,6 +37,11 @@ dev = [
     "jupyterlab",
     "pandas",
 ]
+
+[project.urls]
+Homepage = "https://github.com/yuuka-dev/task-recorder-cui"
+Repository = "https://github.com/yuuka-dev/task-recorder-cui"
+Issues = "https://github.com/yuuka-dev/task-recorder-cui/issues"
 
 [project.scripts]
 tsk = "task_recorder_cui.cli:main"
