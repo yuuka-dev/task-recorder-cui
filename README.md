@@ -1,5 +1,7 @@
 # task-recorder-cui
 
+[![CI](https://github.com/yuuka-dev/task-recorder-cui/actions/workflows/ci.yml/badge.svg)](https://github.com/yuuka-dev/task-recorder-cui/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/yuuka-dev/task-recorder-cui/branch/main/graph/badge.svg)](https://codecov.io/gh/yuuka-dev/task-recorder-cui)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python](https://img.shields.io/badge/Python-3.11+-blue.svg)](https://www.python.org/)
 
@@ -48,6 +50,15 @@ pip install -e ".[dev]"
 ```
 
 インストール後、`tsk` コマンドが使えるようになります。データは `~/.local/share/tsk/records.db` に保存されます。
+
+### テスト / カバレッジ
+
+```bash
+pytest                                                  # 全テスト実行
+pytest --cov=task_recorder_cui --cov-report=term        # カバレッジ付きで実行
+```
+
+dev 依存関係を更新した場合は `pip install -e ".[dev]"` を再実行してください。
 
 ## 基本的な使い方
 
