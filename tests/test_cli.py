@@ -1,8 +1,7 @@
-"""cli.py のテスト。
+"""cli.py のディスパッチとエントリ動作のテスト。
 
-Phase 2 時点ではサブコマンドのディスパッチとエントリ動作のみを検証する。
-実ロジックは Phase 3-5 で追加されるため、ここでは「未実装メッセージが出る」
-「exit code が正しい」を確認する。
+記録系コマンド (start/stop/now/add) の実ロジックは tests/test_start.py 等で
+検証するため、本ファイルでは argparse の振る舞いと未実装スタブの応答を確認する。
 """
 
 import pytest
@@ -31,12 +30,6 @@ def test_サブコマンド無しはメニュースタブ(capsys: pytest.Capture
     exit_code = main([])
     assert exit_code == 0
     assert "Phase 6" in capsys.readouterr().out
-
-
-def test_記録系サブコマンドはPhase3スタブ(capsys: pytest.CaptureFixture[str]) -> None:
-    exit_code = main(["start", "game", "HOI4"])
-    assert exit_code == 0
-    assert "Phase 3" in capsys.readouterr().out
 
 
 def test_参照系サブコマンドはPhase4スタブ(capsys: pytest.CaptureFixture[str]) -> None:
