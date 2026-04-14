@@ -77,18 +77,18 @@ def build_parser() -> argparse.ArgumentParser:
 
     # --- カテゴリ管理 ---
     p_cat = sub.add_parser("cat", help="カテゴリ管理")
-    cat_sub = p_cat.add_subparsers(dest="cat_action", metavar="<action>")
+    cat_sub = p_cat.add_subparsers(dest="cat_action", metavar="<action>", required=True)
     cat_sub.add_parser("list", help="カテゴリ一覧")
     p_cat_add = cat_sub.add_parser("add", help="カテゴリを追加")
     p_cat_add.add_argument("key", help="新しいカテゴリキー")
     p_cat_add.add_argument("display_name", help="表示名")
     p_cat_remove = cat_sub.add_parser("remove", help="カテゴリをアーカイブ")
-    p_cat_remove.add_argument("key")
+    p_cat_remove.add_argument("key", help="アーカイブするカテゴリキー")
     p_cat_restore = cat_sub.add_parser("restore", help="アーカイブから復帰")
-    p_cat_restore.add_argument("key")
+    p_cat_restore.add_argument("key", help="復帰させるカテゴリキー")
     p_cat_rename = cat_sub.add_parser("rename", help="表示名を変更")
-    p_cat_rename.add_argument("key")
-    p_cat_rename.add_argument("new_display_name")
+    p_cat_rename.add_argument("key", help="変更するカテゴリキー")
+    p_cat_rename.add_argument("new_display_name", help="新しい表示名")
 
     return parser
 
@@ -100,7 +100,11 @@ def main(argv: list[str] | None = None) -> int:
         argv: 引数リスト。Noneの場合は sys.argv[1:] が使われる。
 
     Returns:
-        終了コード (0: 成功、2: usage error)。
+        終了コード (0: 成功)。
+
+    Raises:
+        SystemExit: --help / --version 表示時、または usage error 時に
+            argparse が送出する。正常終了は code=0、usage error は code=2。
     """
     parser = build_parser()
     args = parser.parse_args(argv)
@@ -109,9 +113,6 @@ def main(argv: list[str] | None = None) -> int:
         return _not_implemented("インタラクティブメニュー", _MENU_PHASE)
 
     if args.command == "cat":
-        if args.cat_action is None:
-            parser.parse_args(["cat", "--help"])
-            return 2
         return _not_implemented(f"tsk cat {args.cat_action}", _CAT_PHASE)
 
     phase = _SUBCOMMAND_PHASE.get(args.command, "未定")

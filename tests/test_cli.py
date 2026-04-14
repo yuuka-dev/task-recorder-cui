@@ -51,6 +51,12 @@ def test_cat_addはPhase5スタブ(capsys: pytest.CaptureFixture[str]) -> None:
     assert "Phase 5" in capsys.readouterr().out
 
 
+def test_catサブコマンド無しはexit2(capsys: pytest.CaptureFixture[str]) -> None:
+    with pytest.raises(SystemExit) as ex:
+        main(["cat"])
+    assert ex.value.code == 2
+
+
 def test_未知コマンドはexit2(capsys: pytest.CaptureFixture[str]) -> None:
     with pytest.raises(SystemExit) as ex:
         main(["no_such_command"])

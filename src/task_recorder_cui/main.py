@@ -1,4 +1,4 @@
-"""`python -m task_recorder_cui.main` および `python -m task_recorder_cui` 用のエントリ。
+"""`python -m task_recorder_cui.main` 用のエントリ。
 
 実体の CLI ロジックは `cli.main` にある。本モジュールは薄いラッパ。
 """
