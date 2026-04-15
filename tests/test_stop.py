@@ -56,3 +56,43 @@ def test_stop_clears_active_timer(isolated_db) -> None:
     with open_db() as conn:
         row = conn.execute("SELECT timer_target_at FROM records WHERE id = ?", (rec_id,)).fetchone()
         assert row["timer_target_at"] is None
+
+
+def test_stop_english_output(isolated_db: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    from datetime import timedelta
+
+    from task_recorder_cui.commands import stop as stop_cmd
+    from task_recorder_cui.db import open_db
+    from task_recorder_cui.i18n import set_lang
+    from task_recorder_cui.repo import insert_record
+    from task_recorder_cui.utils.time import now_utc
+
+    set_lang("en")
+    try:
+        with open_db() as conn, conn:
+            insert_record(
+                conn,
+                category_key="dev",
+                description="x",
+                started_at=now_utc() - timedelta(minutes=30),
+            )
+        rc = stop_cmd.run()
+        assert rc == 0
+        out = capsys.readouterr().out
+        assert "Stopped" in out
+    finally:
+        set_lang(None)
+
+
+def test_stop_no_active_english(isolated_db: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    from task_recorder_cui.commands import stop as stop_cmd
+    from task_recorder_cui.i18n import set_lang
+
+    set_lang("en")
+    try:
+        rc = stop_cmd.run()
+        assert rc == 1
+        out = capsys.readouterr().out
+        assert "No active session" in out
+    finally:
+        set_lang(None)

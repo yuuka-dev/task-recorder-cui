@@ -146,3 +146,31 @@ class TestRename:
     ) -> None:
         exit_code = main(["cat", "rename", "game", ""])
         assert exit_code == 1
+
+
+class TestEnglishOutput:
+    """--lang en で英語メッセージが出力されることを確認する。"""
+
+    def test_cat_list_english(self, isolated_db: Path, capsys: pytest.CaptureFixture[str]) -> None:
+        from task_recorder_cui.i18n import set_lang
+
+        try:
+            rc = main(["--lang", "en", "cat", "list"])
+            assert rc == 0
+            out = capsys.readouterr().out
+            assert "Categories" in out
+            assert "display_name" in out
+        finally:
+            set_lang(None)
+
+    def test_cat_not_found_english(
+        self, isolated_db: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        from task_recorder_cui.i18n import set_lang
+
+        try:
+            rc = main(["--lang", "en", "cat", "remove", "nope"])
+            assert rc == 1
+            assert "does not exist" in capsys.readouterr().err
+        finally:
+            set_lang(None)

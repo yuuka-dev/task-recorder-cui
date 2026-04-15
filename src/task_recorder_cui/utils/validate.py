@@ -2,6 +2,8 @@
 
 import re
 
+from task_recorder_cui.i18n import t
+
 _CATEGORY_KEY_PATTERN = re.compile(r"^[a-z0-9_]+$")
 
 
@@ -12,12 +14,10 @@ def validate_category_key(key: str) -> None:
         key: 検証対象の文字列。
 
     Raises:
-        ValueError: 不正なkeyの場合。
+        ValueError: 不正なkeyの場合。メッセージは現在言語 (i18n) で返す。
 
     """
     if not key:
-        raise ValueError("category key は空にできません")
+        raise ValueError(t("VALIDATE_KEY_EMPTY"))
     if not _CATEGORY_KEY_PATTERN.match(key):
-        raise ValueError(
-            f"category key must match [a-z0-9_]+ (ASCII lowercase/digit/underscore): {key!r}"
-        )
+        raise ValueError(t("VALIDATE_KEY_INVALID_CHARS", key=key))

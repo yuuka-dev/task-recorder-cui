@@ -36,7 +36,7 @@ def test_default_timer_values() -> None:
 
 def test_default_ui_values() -> None:
     cfg = default_config()
-    assert cfg.ui.lang == "ja"
+    assert cfg.ui.lang == ""
     assert cfg.ui.bar_color == "cyan"
     assert cfg.ui.bar_style == "solid"
 
@@ -58,7 +58,7 @@ def test_load_config_returns_default_when_file_missing(
 ) -> None:
     monkeypatch.setenv("TSK_CONFIG_PATH", str(tmp_path / "absent.toml"))
     cfg = load_config()
-    assert cfg.ui.lang == "ja"
+    assert cfg.ui.lang == ""
 
 
 def test_save_and_load_roundtrip(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -96,7 +96,7 @@ def test_load_config_with_partial_file(tmp_path: Path, monkeypatch: pytest.Monke
     cfg = load_config()
     assert cfg.timer.sound_path == "/tmp/other.wav"
     assert cfg.timer.enabled is True
-    assert cfg.ui.lang == "ja"
+    assert cfg.ui.lang == ""
 
 
 def test_get_value_nested_key() -> None:

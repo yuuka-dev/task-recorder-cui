@@ -45,3 +45,14 @@ def test_archivedカテゴリはexit1(isolated_db: Path, capsys: pytest.CaptureF
     assert exit_code == 1
     err = capsys.readouterr().err
     assert "アーカイブ済み" in err
+
+
+def test_add_english(isolated_db: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    from task_recorder_cui.i18n import set_lang
+
+    try:
+        rc = main(["--lang", "en", "add", "dev", "30", "test"])
+        assert rc == 0
+        assert "Added" in capsys.readouterr().out
+    finally:
+        set_lang(None)

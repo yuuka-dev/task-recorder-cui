@@ -6,6 +6,7 @@ from datetime import timedelta
 from rich.markup import escape
 
 from task_recorder_cui.db import open_db
+from task_recorder_cui.i18n import t
 from task_recorder_cui.io import print_error, print_line, print_warning
 from task_recorder_cui.models import Record
 from task_recorder_cui.repo import (
@@ -47,16 +48,10 @@ def run(
     with open_db() as conn:
         category = find_category(conn, category_key)
         if category is None:
-            print_error(
-                f"カテゴリ '{category_key}' が存在しません。`tsk cat list` で一覧を確認してください"
-            )
+            print_error(t("START_CATEGORY_NOT_FOUND", key=category_key))
             return 1
         if category.archived:
-            print_error(
-                f"カテゴリ '{category_key}' はアーカイブ済みです。 "
-                f"`tsk cat restore {category_key}` または "
-                f"`tsk cat add {category_key} <display_name>` で復帰させてください"
-            )
+            print_error(t("START_CATEGORY_ARCHIVED", key=category_key))
             return 1
         active = find_active_record(conn)
         if active is not None:
@@ -82,8 +77,16 @@ def run(
     detail = f" {escape(description)}" if description else ""
     timer_note = ""
     if timer_minutes is not None:
-        timer_note = f" [タイマー {format_duration(timer_minutes)}]"
-    print_line(f"開始: [{escape(display_name)}]{detail} ({local_hm}-){timer_note}")
+        timer_note = t("START_TIMER_NOTE", duration=format_duration(timer_minutes))
+    print_line(
+        t(
+            "START_SUCCESS",
+            display=escape(display_name),
+            detail=detail,
+            started_hm=local_hm,
+            timer_note=timer_note,
+        )
+    )
     return 0
 
 
@@ -93,5 +96,12 @@ def _print_already_active(conn: sqlite3.Connection, active: Record) -> None:
     display = category.display_name if category else active.category_key
     started_local = active.started_at.astimezone().strftime("%H:%M")
     detail = f" {active.description}" if active.description else ""
-    print_warning(f"既に記録中のセッションがあります: [{display}]{detail} ({started_local}-)")
-    print_line("先に `tsk stop` で停止してください")
+    print_warning(
+        t(
+            "START_ALREADY_ACTIVE",
+            display=display,
+            detail=detail,
+            started_hm=started_local,
+        )
+    )
+    print_line(t("START_HINT_STOP_FIRST"))
