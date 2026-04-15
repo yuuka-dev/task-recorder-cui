@@ -186,3 +186,16 @@ def test_should_flash_false_when_none() -> None:
 
     now = datetime(2026, 4, 14, 14, 30, tzinfo=UTC)
     assert should_flash(now=now, fired_at=None, window_seconds=5) is False
+
+
+def test_active_session_line_english(isolated_db) -> None:
+    from task_recorder_cui.i18n import set_lang
+
+    now = datetime(2026, 4, 15, 12, 0, 0, tzinfo=UTC)
+    set_lang("en")
+    try:
+        with open_db() as conn:
+            line = _active_session_line(now, conn)
+        assert line == "Active: none"
+    finally:
+        set_lang(None)
