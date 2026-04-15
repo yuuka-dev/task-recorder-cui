@@ -195,7 +195,7 @@ def main(argv: list[str] | None = None) -> int:
             return cat_cmd.remove_category(args.key)
         if args.cat_action == "restore":
             return cat_cmd.restore_category(args.key)
-        if args.cat_action == "rename":
+        if args.cat_action == "rename":  # pragma: no branch  # argparse の choices で他値は弾かれる
             return cat_cmd.rename_category(args.key, args.new_display_name)
 
     # --- タイマー (Phase 2.1) ---
@@ -204,7 +204,9 @@ def main(argv: list[str] | None = None) -> int:
 
         if args.timer_action == "set":
             return timer_cmd.set_(args.spec)
-        if args.timer_action == "cancel":
+        if (
+            args.timer_action == "cancel"
+        ):  # pragma: no branch  # argparse の choices で他値は弾かれる
             return timer_cmd.cancel()
 
     # --- 設定 (Phase 2.1) ---
@@ -217,7 +219,9 @@ def main(argv: list[str] | None = None) -> int:
             return config_cmd.get(args.key)
         if args.config_action == "set":
             return config_cmd.set_(args.key, args.value)
-        if args.config_action == "reset":
+        if (
+            args.config_action == "reset"
+        ):  # pragma: no branch  # argparse の choices で他値は弾かれる
             return config_cmd.reset(args.key)
 
     # --- daemon hidden ---
@@ -226,4 +230,4 @@ def main(argv: list[str] | None = None) -> int:
 
         return daemon_main([str(args.record_id)])
 
-    return 0
+    return 0  # pragma: no cover  # argparse が未知 command を弾くので実質到達しない

@@ -110,7 +110,7 @@ def insert_category(conn: sqlite3.Connection, key: str, display_name: str) -> in
         "INSERT INTO categories (key, display_name, created_at) VALUES (?, ?, ?)",
         (key, display_name, to_iso(now_utc())),
     )
-    if cur.lastrowid is None:
+    if cur.lastrowid is None:  # pragma: no cover  # sqlite3 の実装上 INSERT 成功時は必ず返る
         raise RuntimeError("INSERT が lastrowid を返しませんでした")
     return cur.lastrowid
 
@@ -208,7 +208,7 @@ def insert_record(
             duration_minutes,
         ),
     )
-    if cur.lastrowid is None:
+    if cur.lastrowid is None:  # pragma: no cover  # sqlite3 の実装上 INSERT 成功時は必ず返る
         raise RuntimeError("INSERT が lastrowid を返しませんでした")
     return cur.lastrowid
 
