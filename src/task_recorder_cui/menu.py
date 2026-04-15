@@ -29,6 +29,120 @@ from task_recorder_cui.repo import (
 from task_recorder_cui.utils.time import format_duration, humanize_relative, now_utc
 
 
+_RAINBOW_COLORS = ["red", "yellow", "green", "cyan", "blue", "magenta"]
+
+
+def _rainbow_text(text: str, *, phase_seconds: int) -> str:
+    """tick ごとに色が回る virtual rainbow バー。"""
+    segments: list[str] = []
+    for i, ch in enumerate(text):
+        color = _RAINBOW_COLORS[(i + phase_seconds) % len(_RAINBOW_COLORS)]
+        segments.append(f"[{color}]{ch}[/{color}]")
+    return "".join(segments)
+
+
+def _gradient_text(text: str, base_color: str) -> str:
+    """静的グラデーション (base_color → white)。"""
+    gradient_pairs = {
+        "cyan": ["cyan", "bright_cyan", "white"],
+        "red": ["red", "bright_red", "white"],
+        "green": ["green", "bright_green", "white"],
+        "blue": ["blue", "bright_blue", "white"],
+        "magenta": ["magenta", "bright_magenta", "white"],
+        "yellow": ["yellow", "bright_yellow", "white"],
+    }
+    palette = gradient_pairs.get(base_color, [base_color, "white"])
+    segments: list[str] = []
+    chunk = max(1, len(text) // len(palette))
+    for i, ch in enumerate(text):
+        color = palette[min(i // chunk, len(palette) - 1)]
+        segments.append(f"[{color}]{ch}[/{color}]")
+    return "".join(segments)
+
+
+def should_flash(
+    *,
+    now: datetime,
+    fired_at: datetime | None,
+    window_seconds: int,
+) -> bool:
+    """直近の発火から window_seconds 以内なら True (= 点滅表示する)。
+
+    Args:
+        now: 現在時刻 (tz付き)。
+        fired_at: タイマー発火時刻 (未発火なら None)。
+        window_seconds: 点滅表示する秒数の閾値。
+
+    Returns:
+        窓内なら True、それ以外は False。
+
+    """
+    if fired_at is None:
+        return False
+    delta = (now - fired_at).total_seconds()
+    return 0 <= delta < window_seconds
+
+
+def render_timer_bar(
+    *,
+    now: datetime,
+    started_at: datetime,
+    target_at: datetime | None,
+    fired_at: datetime | None,
+    bar_color: str,
+    bar_style: str,
+    width: int = 30,
+) -> str:
+    """タイマー状態を rich 用のマークアップ付き文字列に整形する (pure)。
+
+    Args:
+        now: 現在時刻 (tz付き)。
+        started_at: セッション開始時刻。
+        target_at: タイマー目標時刻 (未設定なら None)。
+        fired_at: 発火済なら時刻、未発火なら None。
+        bar_color: 'cyan' 等の rich カラー名。
+        bar_style: 'solid' / 'rainbow' / 'gradient'。
+        width: バーの幅 (文字数)。
+
+    Returns:
+        バーを含む 1 行の文字列。タイマー未設定なら空文字。
+
+    """
+    if target_at is None:
+        return ""
+
+    total_seconds = max(1, int((target_at - started_at).total_seconds()))
+    elapsed_seconds = max(0, int((now - started_at).total_seconds()))
+    ratio = min(1.0, elapsed_seconds / total_seconds)
+    filled = int(width * ratio)
+    if filled >= width:
+        bar_core = "=" * width
+    elif filled > 0:
+        bar_core = "=" * (filled - 1) + ">"
+    else:
+        bar_core = ""
+    bar_body = (bar_core + " " * (width - len(bar_core)))[:width]
+
+    if bar_style == "solid":
+        colored = f"[{bar_color}]{bar_body}[/{bar_color}]"
+    elif bar_style == "gradient":
+        colored = _gradient_text(bar_body, bar_color)
+    elif bar_style == "rainbow":
+        colored = _rainbow_text(bar_body, phase_seconds=elapsed_seconds)
+    else:
+        colored = bar_body
+
+    elapsed_m = elapsed_seconds // 60
+    target_m = total_seconds // 60
+    pct = int(ratio * 100)
+    suffix = ""
+    if should_flash(now=now, fired_at=fired_at, window_seconds=5):
+        suffix = " [bold red blink]タイマー経過[/bold red blink]"
+    elif fired_at is not None:
+        suffix = " [bold]タイマー経過[/bold]"
+    return f"[{colored}] {format_duration(elapsed_m)} / {format_duration(target_m)} ({pct}%){suffix}"
+
+
 def _active_session_line(now: datetime, conn: sqlite3.Connection) -> str:
     """記録中セッションの 1 行表示を返す (副作用なし)。
 
