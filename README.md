@@ -1,3 +1,5 @@
+[English](README.en.md) | 日本語
+
 # task-recorder-cui
 
 [![CI](https://github.com/yuuka-dev/task-recorder-cui/actions/workflows/ci.yml/badge.svg)](https://github.com/yuuka-dev/task-recorder-cui/actions/workflows/ci.yml)
