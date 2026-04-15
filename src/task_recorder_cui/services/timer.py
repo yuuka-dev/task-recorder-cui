@@ -8,12 +8,14 @@ import contextlib
 import os
 import re
 import subprocess
+import time as _time
 import traceback
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from datetime import datetime
 from pathlib import Path
 
 from task_recorder_cui.utils.paths import to_windows_path
+from task_recorder_cui.utils.time import now_utc
 
 # 2h30m / 30m / 2h / 150 / 150m を許容
 _TIMER_SPEC_RE = re.compile(r"^(?:(\d+)h)?(?:(\d+)m?)?$")
@@ -165,3 +167,84 @@ def menu_lock() -> Iterator[None]:
             path.unlink(missing_ok=True)
         except OSError:
             pass
+
+
+def _load_record(conn, record_id: int):
+    """指定 id の Record を返す。存在しなければ None。"""
+    from task_recorder_cui.repo import row_to_record
+
+    row = conn.execute("SELECT * FROM records WHERE id = ?", (record_id,)).fetchone()
+    return row_to_record(row) if row else None
+
+
+def run_daemon_loop(
+    record_id: int,
+    *,
+    sleep_fn: Callable[[float], None] = _time.sleep,
+    fire_fn: Callable[..., None] | None = None,
+    tick_seconds: float = 1.0,
+    max_iterations: int | None = None,
+) -> int:
+    """タイマー daemon のメインループ。
+
+    1 秒ごとに DB を開き直して対象レコードの状態を確認し、target_at を過ぎたら
+    fire_fn を呼ぶ。以下のいずれかで即座に exit する:
+
+        - レコードが削除されている
+        - timer_target_at が NULL に戻された (キャンセル)
+        - timer_fired_at が既に set されている
+        - セッションが終了済 (ended_at set)
+        - 発火完了
+
+    Args:
+        record_id: 対象レコード id。
+        sleep_fn: 1 tick の sleep 関数 (テスト時にモック)。
+        fire_fn: 発火時に呼ぶ関数。None なら _default_fire を使う。
+        tick_seconds: ループ間隔秒数。
+        max_iterations: テスト用の上限 (None なら無制限)。
+
+    Returns:
+        exit code (常に 0)。
+
+    """
+    from task_recorder_cui.db import open_db as _open_db
+
+    if fire_fn is None:
+        fire_fn = _default_fire
+
+    iterations = 0
+    while max_iterations is None or iterations < max_iterations:
+        iterations += 1
+        with _open_db() as conn:
+            record = _load_record(conn, record_id)
+            if record is None:
+                return 0
+            if record.timer_target_at is None:
+                return 0
+            if record.timer_fired_at is not None:
+                return 0
+            if record.ended_at is not None:
+                return 0
+            if now_utc() >= record.timer_target_at:
+                fire_fn(record)
+                return 0
+        sleep_fn(tick_seconds)
+    return 0
+
+
+def _default_fire(record) -> None:
+    """発火時のデフォルト動作: 音 + (メニュー閉時なら) 通知 + DB に fired_at 記録。"""
+    from task_recorder_cui.config import load_config
+    from task_recorder_cui.db import open_db as _open_db
+    from task_recorder_cui.repo import mark_timer_fired
+
+    cfg = load_config()
+    if not cfg.timer.enabled:
+        return
+    wav = Path(cfg.timer.sound_path).expanduser()
+    if wav.exists():
+        play_sound(wav)
+    if cfg.timer.notify_when_closed and not is_menu_alive():
+        show_notification("タイマー経過しました")
+    with _open_db() as conn, conn:
+        mark_timer_fired(conn, record.id, fired_at=now_utc())
