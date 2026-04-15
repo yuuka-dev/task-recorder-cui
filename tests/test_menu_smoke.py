@@ -30,3 +30,29 @@ def test_menu_run_returns_zero_on_none(isolated_db, monkeypatch) -> None:
     from task_recorder_cui.menu import run
 
     assert run() == 0
+
+
+def test_menu_run_holds_lock(isolated_db, monkeypatch, tmp_path) -> None:
+    """menu.run() が呼ばれている間 menu lock が取得される。"""
+    from task_recorder_cui.services.timer import is_menu_alive
+
+    lock_path = tmp_path / "menu.lock"
+    monkeypatch.setattr(
+        "task_recorder_cui.services.timer.menu_lock_path",
+        lambda: lock_path,
+    )
+
+    observed: list[bool] = []
+
+    def fake_menu(*, recording):
+        observed.append(is_menu_alive())
+        return "quit"
+
+    monkeypatch.setattr("task_recorder_cui.menu._show_main_menu", fake_menu)
+
+    from task_recorder_cui.menu import run
+
+    rc = run()
+    assert rc == 0
+    assert observed == [True]
+    assert not lock_path.exists()

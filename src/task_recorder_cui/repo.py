@@ -24,8 +24,14 @@ def row_to_category(row: sqlite3.Row) -> Category:
 
 
 def row_to_record(row: sqlite3.Row) -> Record:
-    """DB行を Record に変換する。記録中セッション (ended_at IS NULL) にも対応。"""
+    """DB行を Record に変換する。記録中セッション (ended_at IS NULL) にも対応。
+
+    timer カラムは v0 DB との互換のため存在チェックしてから読む。
+    """
     ended_at_raw = row["ended_at"]
+    keys = row.keys()
+    target_raw = row["timer_target_at"] if "timer_target_at" in keys else None
+    fired_raw = row["timer_fired_at"] if "timer_fired_at" in keys else None
     return Record(
         id=row["id"],
         category_key=row["category_key"],
@@ -33,6 +39,8 @@ def row_to_record(row: sqlite3.Row) -> Record:
         started_at=from_iso(row["started_at"]),
         ended_at=from_iso(ended_at_raw) if ended_at_raw else None,
         duration_minutes=row["duration_minutes"],
+        timer_target_at=from_iso(target_raw) if target_raw else None,
+        timer_fired_at=from_iso(fired_raw) if fired_raw else None,
     )
 
 
@@ -224,6 +232,50 @@ def update_record_end(
     conn.execute(
         "UPDATE records SET ended_at = ?, duration_minutes = ? WHERE id = ?",
         (to_iso(ended_at), duration_minutes, record_id),
+    )
+
+
+def set_timer_target(conn: sqlite3.Connection, record_id: int, *, target_at: datetime) -> None:
+    """レコードにタイマー目標時刻を設定する。
+
+    Args:
+        conn: DB接続。
+        record_id: 対象レコードの id。
+        target_at: タイマー発火予定時刻 (tz付き)。
+
+    """
+    conn.execute(
+        "UPDATE records SET timer_target_at = ? WHERE id = ?",
+        (to_iso(target_at), record_id),
+    )
+
+
+def clear_timer_target(conn: sqlite3.Connection, record_id: int) -> None:
+    """レコードのタイマー目標時刻を NULL に戻す。
+
+    Args:
+        conn: DB接続。
+        record_id: 対象レコードの id。
+
+    """
+    conn.execute(
+        "UPDATE records SET timer_target_at = NULL WHERE id = ?",
+        (record_id,),
+    )
+
+
+def mark_timer_fired(conn: sqlite3.Connection, record_id: int, *, fired_at: datetime) -> None:
+    """レコードのタイマー発火時刻を記録する。target_at はそのまま。
+
+    Args:
+        conn: DB接続。
+        record_id: 対象レコードの id。
+        fired_at: 発火時刻 (tz付き)。
+
+    """
+    conn.execute(
+        "UPDATE records SET timer_fired_at = ? WHERE id = ?",
+        (to_iso(fired_at), record_id),
     )
 
 

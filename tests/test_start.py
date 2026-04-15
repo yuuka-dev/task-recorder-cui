@@ -67,3 +67,74 @@ def test_archivedカテゴリはexit1(isolated_db: Path, capsys: pytest.CaptureF
     err = capsys.readouterr().err
     assert "アーカイブ済み" in err
     assert _fetch_records(isolated_db) == []
+
+
+def test_start_with_timer_sets_target(isolated_db, monkeypatch: pytest.MonkeyPatch) -> None:
+    """start --timer 30m で records に timer_target_at が書き込まれる。"""
+    from task_recorder_cui.commands import start as start_cmd
+    from task_recorder_cui.db import open_db
+    from task_recorder_cui.repo import find_active_record
+
+    calls: list[int] = []
+    monkeypatch.setattr("task_recorder_cui.commands.start.spawn_daemon", lambda r: calls.append(r))
+
+    rc = start_cmd.run("dev", "with-timer", timer_spec="30m")
+    assert rc == 0
+    with open_db() as conn:
+        rec = find_active_record(conn)
+        assert rec is not None
+        assert rec.timer_target_at is not None
+    assert len(calls) == 1
+
+
+def test_start_without_timer_does_not_spawn(isolated_db, monkeypatch: pytest.MonkeyPatch) -> None:
+    from task_recorder_cui.commands import start as start_cmd
+
+    calls: list[int] = []
+    monkeypatch.setattr("task_recorder_cui.commands.start.spawn_daemon", lambda r: calls.append(r))
+
+    rc = start_cmd.run("dev", "no-timer", timer_spec=None)
+    assert rc == 0
+    assert calls == []
+
+
+def test_start_with_invalid_timer_errors_before_insert(
+    isolated_db, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """invalid --timer なら start 自体を失敗させ、レコードを書かない。"""
+    from task_recorder_cui.commands import start as start_cmd
+    from task_recorder_cui.db import open_db
+
+    rc = start_cmd.run("dev", "bad", timer_spec="nope")
+    assert rc == 1
+    err = capsys.readouterr().err
+    assert "不正" in err
+    with open_db() as conn:
+        count = conn.execute("SELECT COUNT(*) FROM records").fetchone()[0]
+        assert count == 0
+
+
+def test_start_english_messages(isolated_db: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    from task_recorder_cui.i18n import set_lang
+
+    try:
+        rc = main(["--lang", "en", "start", "dev", "english test"])
+        assert rc == 0
+        out = capsys.readouterr().out
+        assert "Started" in out
+    finally:
+        set_lang(None)
+
+
+def test_start_unknown_category_english(
+    isolated_db: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    from task_recorder_cui.i18n import set_lang
+
+    try:
+        rc = main(["--lang", "en", "start", "nonexistent", "x"])
+        assert rc == 1
+        err = capsys.readouterr().err
+        assert "does not exist" in err.lower() or "Category" in err
+    finally:
+        set_lang(None)

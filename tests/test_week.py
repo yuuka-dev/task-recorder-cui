@@ -39,3 +39,16 @@ def test_calendarフラグで今週表記になる(
     exit_code = main(["week", "--calendar"])
     assert exit_code == 0
     assert "今週" in capsys.readouterr().out
+
+
+def test_week_english(isolated_db: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    from task_recorder_cui.i18n import set_lang
+
+    try:
+        rc = main(["--lang", "en", "week"])
+        assert rc == 0
+        out = capsys.readouterr().out
+        assert "Last 7 days" in out
+        assert "No records" in out
+    finally:
+        set_lang(None)

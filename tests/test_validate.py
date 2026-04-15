@@ -26,3 +26,15 @@ class TestValidateCategoryKey:
     def test_無効なkeyはValueError(self, key: str) -> None:
         with pytest.raises(ValueError):
             validate_category_key(key)
+
+    def test_英語ロケールのエラーメッセージ(self) -> None:
+        from task_recorder_cui.i18n import set_lang
+
+        set_lang("en")
+        try:
+            with pytest.raises(ValueError, match="must not be empty"):
+                validate_category_key("")
+            with pytest.raises(ValueError, match="must match"):
+                validate_category_key("Bad Key")
+        finally:
+            set_lang(None)

@@ -19,6 +19,7 @@ from rich.box import SIMPLE
 from rich.markup import escape
 from rich.table import Table
 
+from task_recorder_cui.i18n import t
 from task_recorder_cui.io import print_line, print_table
 from task_recorder_cui.repo import find_active_record, row_to_record
 from task_recorder_cui.utils.time import format_duration, now_utc, to_iso
@@ -189,10 +190,10 @@ def render_breakdown_table(summary: PeriodSummary, title: str) -> Table:
     """
     keys = _sorted_category_keys(summary)
     table = Table(title=title, box=SIMPLE, show_edge=True, pad_edge=False)
-    table.add_column("日付", justify="left", no_wrap=True)
+    table.add_column(t("SUMMARY_BREAKDOWN_COL_DATE"), justify="left", no_wrap=True)
     for key in keys:
         table.add_column(escape(summary.display_names.get(key, key)), justify="right")
-    table.add_column("合計", justify="right", style="bold")
+    table.add_column(t("SUMMARY_BREAKDOWN_COL_TOTAL"), justify="right", style="bold")
 
     for day in summary.days:
         weekday = WEEKDAY_EN[day.local_date.weekday()]
@@ -217,7 +218,7 @@ def render_category_totals(summary: PeriodSummary, *, with_daily_avg: bool = Fal
     """
     total = summary.total_minutes
     if not summary.per_category_minutes:
-        print_line("記録なし")
+        print_line(t("SUMMARY_NO_RECORDS"))
         return
 
     day_count = (summary.end_local - summary.start_local).days + 1
@@ -239,7 +240,12 @@ def render_category_totals(summary: PeriodSummary, *, with_daily_avg: bool = Fal
         percent = f"({pct}%)"
         if with_daily_avg:
             avg = minutes // day_count if day_count > 0 else 0
-            grid.add_row(label, duration, percent, f"/ 日平均 {format_duration(avg)}")
+            grid.add_row(
+                label,
+                duration,
+                percent,
+                t("SUMMARY_DAILY_AVG_SUFFIX", avg=format_duration(avg)),
+            )
         else:
             grid.add_row(label, duration, percent)
 
