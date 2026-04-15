@@ -24,6 +24,9 @@ Designed to be light enough that daily use never feels like a chore.
 - `tsk today` / `tsk week` / `tsk month` — summaries
 - Categories are freely added / archived (initial set: `game` / `study` / `dev`)
 - Run without arguments to enter a hierarchical interactive menu
+- **Timer**: `tsk start --timer 2h30m` arms a timer alongside the session.
+  When it fires, a sound plays through the Windows speaker, the menu shows
+  a progress bar while open, and a desktop notification fires when closed.
 - `--lang ja|en` or `LANG=en_US.UTF-8` for language switching
 
 ## Tech stack
@@ -169,9 +172,37 @@ Use arrow keys + Enter to choose. Ctrl+C / ESC exits safely at any time (any in-
 
 > `key` must be ASCII lowercase / digits / underscore only. To avoid breaking historical records, categories are **archived**, not deleted.
 
+### Timer (Phase 2.1)
+
+| Command | Description |
+|---|---|
+| `tsk start <cat> "<desc>" --timer 2h30m` | Start a session with a timer attached |
+| `tsk timer set 30m` | Attach a timer to the active session afterwards |
+| `tsk timer cancel` | Cancel the active timer |
+
+### Config (Phase 2.1)
+
+| Command | Description |
+|---|---|
+| `tsk config list` | Show all settings |
+| `tsk config get timer.sound_path` | Show a single key |
+| `tsk config set ui.bar_style rainbow` | Update a value |
+| `tsk config reset ui.bar_color` | Reset to default |
+
+The config file lives at `~/.config/tsk/config.toml` (override with `TSK_CONFIG_PATH`). Windows-style paths (e.g. `C:\Windows\Media\Alarm01.wav`) are auto-converted to `/mnt/c/...`.
+
 ## Out of scope (what this tool does not do)
 
 Task management, cloud sync, notifications, graph rendering, pomodoro timing, tags, and priority fields are intentionally excluded. The tool only records time.
+
+## Constraints
+
+- **WSL2 only** for the timer feature: it shells out to `powershell.exe` and
+  `wslpath`, so the host must be WSL2 Ubuntu (or equivalent).
+- **Timer dies on WSL shutdown**: the timer daemon is a detached child process
+  that survives `tsk` exiting, but a full WSL shutdown kills it. Persistent
+  scheduling (Windows Task Scheduler integration) is on the roadmap for
+  Phase 2.2+.
 
 ## License
 
