@@ -174,3 +174,50 @@ def test_is_menu_alive_false_for_dead_pid(
     )
 
     assert not is_menu_alive()
+
+
+# --- Task 13: spawn_daemon ---
+
+
+def test_spawn_daemon_invokes_popen(monkeypatch: pytest.MonkeyPatch) -> None:
+    """spawn_daemon は subprocess.Popen を start_new_session=True で呼ぶ。"""
+    from task_recorder_cui.services import timer as timer_mod
+
+    captured: dict[str, object] = {}
+
+    class FakePopen:
+        def __init__(self, args, **kwargs):
+            captured["args"] = args
+            captured["kwargs"] = kwargs
+
+    monkeypatch.setattr(timer_mod.subprocess, "Popen", FakePopen)
+    monkeypatch.delenv("TSK_DAEMON_ENTRY", raising=False)
+
+    timer_mod.spawn_daemon(42)
+
+    args = captured["args"]
+    assert isinstance(args, list)
+    assert args[0:2] == ["tsk", "_timer-daemon"]
+    assert "42" in args
+    kwargs = captured["kwargs"]
+    assert kwargs.get("start_new_session") is True
+
+
+def test_spawn_daemon_uses_python_m_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
+    """TSK_DAEMON_ENTRY 環境変数で 'python -m task_recorder_cui' 経由に切替可能。"""
+    from task_recorder_cui.services import timer as timer_mod
+
+    captured: dict[str, object] = {}
+
+    class FakePopen:
+        def __init__(self, args, **kwargs):
+            captured["args"] = args
+
+    monkeypatch.setattr(timer_mod.subprocess, "Popen", FakePopen)
+    monkeypatch.setenv("TSK_DAEMON_ENTRY", "python-m")
+
+    timer_mod.spawn_daemon(7)
+
+    args = captured["args"]
+    assert args[0:4] == ["python", "-m", "task_recorder_cui", "_timer-daemon"]
+    assert "7" in args

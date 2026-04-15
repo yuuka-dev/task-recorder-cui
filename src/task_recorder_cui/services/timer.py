@@ -232,6 +232,31 @@ def run_daemon_loop(
     return 0
 
 
+def spawn_daemon(record_id: int) -> None:
+    """detach された子プロセスでタイマー daemon を起動する。
+
+    子プロセスは親の tsk CLI が終了しても生き続ける (start_new_session=True)。
+    標準入出力は /dev/null にリダイレクト。
+
+    Args:
+        record_id: daemon が監視するレコード id。
+
+    """
+    entry = os.environ.get("TSK_DAEMON_ENTRY", "tsk")
+    if entry == "python-m":
+        cmd = ["python", "-m", "task_recorder_cui", "_timer-daemon", str(record_id)]
+    else:
+        cmd = ["tsk", "_timer-daemon", str(record_id)]
+
+    subprocess.Popen(
+        cmd,
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        start_new_session=True,
+    )
+
+
 def _default_fire(record) -> None:
     """発火時のデフォルト動作: 音 + (メニュー閉時なら) 通知 + DB に fired_at 記録。"""
     from task_recorder_cui.config import load_config
