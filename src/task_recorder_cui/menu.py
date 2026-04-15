@@ -152,8 +152,29 @@ def _show_help() -> None:
     print_line(_HELP_TEXT)
 
 
+def _prompt_to_start_params(
+    form: dict[str, str],
+) -> tuple[str, str | None, str | None]:
+    """メニュー入力 dict を `start_cmd.run` 引数に整形する (pure)。
+
+    Args:
+        form: questionary のフォーム結果 (category / description / timer キーを持つ)。
+
+    Returns:
+        (category_key, description | None, timer_spec | None) のタプル。
+        description と timer は空白 or 空文字なら None にする。
+
+    """
+    category = form["category"]
+    desc_raw = form.get("description", "").strip()
+    timer_raw = form.get("timer", "").strip()
+    description = desc_raw if desc_raw else None
+    timer_spec = timer_raw if timer_raw else None
+    return category, description, timer_spec
+
+
 def _start_flow() -> None:
-    """カテゴリ選択 → description 入力 → start 実行。
+    """カテゴリ選択 → description 入力 → タイマー入力 → start 実行。
 
     active カテゴリが 0 件なら案内のみ。キャンセル (Ctrl+C/ESC) で安全に戻る。
     """
@@ -176,9 +197,21 @@ def _start_flow() -> None:
     desc = questionary.text("何をしましたか (任意、空欄可)", default="").ask()
     if desc is None:
         return
-    desc_or_none: str | None = desc.strip() or None
 
-    start_cmd.run(key, desc_or_none)
+    timer_answer = questionary.text(
+        "タイマー (例: 2h30m、空欄でスキップ)",
+        default="",
+    ).ask()
+    if timer_answer is None:
+        return
+
+    form = {
+        "category": key,
+        "description": desc,
+        "timer": timer_answer,
+    }
+    category, desc_or_none, timer_spec = _prompt_to_start_params(form)
+    start_cmd.run(category, desc_or_none, timer_spec=timer_spec)
 
 
 def _cat_submenu() -> None:
