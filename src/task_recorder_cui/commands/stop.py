@@ -3,6 +3,7 @@
 from rich.markup import escape
 
 from task_recorder_cui.db import open_db
+from task_recorder_cui.i18n import t
 from task_recorder_cui.io import print_line
 from task_recorder_cui.repo import (
     clear_timer_target,
@@ -25,7 +26,7 @@ def run() -> int:
     with open_db() as conn:
         active = find_active_record(conn)
         if active is None:
-            print_line("記録中のセッションはありません")
+            print_line(t("STOP_NO_ACTIVE"))
             return 1
 
         ended_at = now_utc()
@@ -41,6 +42,13 @@ def run() -> int:
     ended_hm = ended_at.astimezone().strftime("%H:%M")
     detail = f" {escape(active.description)}" if active.description else ""
     print_line(
-        f"停止: [{escape(display)}]{detail} ({started_hm}-{ended_hm}, {format_duration(duration)})"
+        t(
+            "STOP_SUCCESS",
+            display=escape(display),
+            detail=detail,
+            started_hm=started_hm,
+            ended_hm=ended_hm,
+            duration=format_duration(duration),
+        )
     )
     return 0
