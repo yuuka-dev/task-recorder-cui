@@ -5,6 +5,7 @@ from datetime import timedelta
 from rich.markup import escape
 
 from task_recorder_cui.db import open_db
+from task_recorder_cui.i18n import t
 from task_recorder_cui.io import print_error, print_line
 from task_recorder_cui.repo import find_category, insert_record
 from task_recorder_cui.utils.time import format_duration, now_utc
@@ -23,22 +24,16 @@ def run(category_key: str, minutes: int, description: str | None) -> int:
 
     """
     if minutes <= 0:
-        print_error(f"minutes は1以上である必要があります: {minutes}")
+        print_error(t("ADD_INVALID_MINUTES", minutes=minutes))
         return 1
 
     with open_db() as conn:
         category = find_category(conn, category_key)
         if category is None:
-            print_error(
-                f"カテゴリ '{category_key}' が存在しません。`tsk cat list` で一覧を確認してください"
-            )
+            print_error(t("START_CATEGORY_NOT_FOUND", key=category_key))
             return 1
         if category.archived:
-            print_error(
-                f"カテゴリ '{category_key}' はアーカイブ済みです。 "
-                f"`tsk cat restore {category_key}` または "
-                f"`tsk cat add {category_key} <display_name>` で復帰させてください"
-            )
+            print_error(t("START_CATEGORY_ARCHIVED", key=category_key))
             return 1
         ended_at = now_utc()
         started_at = ended_at - timedelta(minutes=minutes)
@@ -57,7 +52,13 @@ def run(category_key: str, minutes: int, description: str | None) -> int:
     ended_hm = ended_at.astimezone().strftime("%H:%M")
     detail = f" {escape(description)}" if description else ""
     print_line(
-        f"追加: [{escape(display_name)}]{detail}"
-        f" ({started_hm}-{ended_hm}, {format_duration(minutes)})"
+        t(
+            "ADD_SUCCESS",
+            display=escape(display_name),
+            detail=detail,
+            started_hm=started_hm,
+            ended_hm=ended_hm,
+            duration=format_duration(minutes),
+        )
     )
     return 0

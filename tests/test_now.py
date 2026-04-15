@@ -62,3 +62,15 @@ def test_now_no_timer_hides_timer_line(isolated_db, capsys: pytest.CaptureFixtur
     assert rc == 0
     out = capsys.readouterr().out
     assert "タイマー" not in out
+
+
+def test_now_english(isolated_db: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    from task_recorder_cui.i18n import set_lang
+
+    try:
+        rc = main(["--lang", "en", "now"])
+        assert rc == 0
+        out = capsys.readouterr().out
+        assert "No active session" in out
+    finally:
+        set_lang(None)

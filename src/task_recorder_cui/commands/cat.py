@@ -8,6 +8,7 @@ from rich.markup import escape
 from rich.table import Table
 
 from task_recorder_cui.db import open_db
+from task_recorder_cui.i18n import t
 from task_recorder_cui.io import print_error, print_line, print_table
 from task_recorder_cui.repo import (
     find_category,
@@ -35,17 +36,17 @@ def list_categories(*, active_only: bool = False, archived_only: bool = False) -
 
     if not categories:
         if archived_only:
-            print_line("archived カテゴリはありません")
+            print_line(t("CAT_LIST_EMPTY_ARCHIVED"))
         elif active_only:
-            print_line("active カテゴリはありません")
+            print_line(t("CAT_LIST_EMPTY_ACTIVE"))
         else:
-            print_line("カテゴリがありません")
+            print_line(t("CAT_LIST_EMPTY"))
         return 0
 
-    table = Table(title="カテゴリ", box=SIMPLE, show_edge=True, pad_edge=False)
-    table.add_column("key", style="bold")
-    table.add_column("表示名")
-    table.add_column("archived", justify="center")
+    table = Table(title=t("CAT_LIST_TABLE_TITLE"), box=SIMPLE, show_edge=True, pad_edge=False)
+    table.add_column(t("CAT_COL_KEY"), style="bold")
+    table.add_column(t("CAT_COL_DISPLAY_NAME"))
+    table.add_column(t("CAT_COL_ARCHIVED"), justify="center")
     for cat in categories:
         table.add_row(escape(cat.key), escape(cat.display_name), "✓" if cat.archived else "")
     print_table(table)
@@ -73,7 +74,7 @@ def add_category(key: str, display_name: str) -> int:
         print_error(str(exc))
         return 1
     if not display_name:
-        print_error("display_name は空にできません")
+        print_error(t("CAT_DISPLAY_NAME_EMPTY"))
         return 1
 
     with open_db() as conn:
@@ -81,21 +82,18 @@ def add_category(key: str, display_name: str) -> int:
         if existing is not None:
             if not existing.archived:
                 print_error(
-                    f"カテゴリ '{key}' は既に存在します (display_name='{existing.display_name}')"
+                    t("CAT_ALREADY_EXISTS", key=key, display=existing.display_name)
                 )
                 return 1
             with conn:
                 update_category_archived(conn, key, archived=False)
                 update_category_display_name(conn, key, display_name)
-            print_line(
-                f"再有効化: {key} → '{escape(display_name)}' "
-                "(以前 archived だったカテゴリを復帰、display_name を上書き)"
-            )
+            print_line(t("CAT_REACTIVATED", key=key, display=escape(display_name)))
             return 0
 
         with conn:
             insert_category(conn, key, display_name)
-    print_line(f"追加: {key} → '{escape(display_name)}'")
+    print_line(t("CAT_ADDED", key=key, display=escape(display_name)))
     return 0
 
 
@@ -112,14 +110,14 @@ def remove_category(key: str) -> int:
     with open_db() as conn:
         existing = find_category(conn, key)
         if existing is None:
-            print_error(f"カテゴリ '{key}' が存在しません")
+            print_error(t("CAT_NOT_FOUND", key=key))
             return 1
         if existing.archived:
-            print_line(f"'{key}' は既にアーカイブ済みです")
+            print_line(t("CAT_ALREADY_ARCHIVED", key=key))
             return 0
         with conn:
             update_category_archived(conn, key, archived=True)
-    print_line(f"アーカイブ: {key} ('{escape(existing.display_name)}')")
+    print_line(t("CAT_ARCHIVED", key=key, display=escape(existing.display_name)))
     return 0
 
 
@@ -136,14 +134,14 @@ def restore_category(key: str) -> int:
     with open_db() as conn:
         existing = find_category(conn, key)
         if existing is None:
-            print_error(f"カテゴリ '{key}' が存在しません")
+            print_error(t("CAT_NOT_FOUND", key=key))
             return 1
         if not existing.archived:
-            print_line(f"'{key}' は既に有効です")
+            print_line(t("CAT_ALREADY_ACTIVE", key=key))
             return 0
         with conn:
             update_category_archived(conn, key, archived=False)
-    print_line(f"復帰: {key} ('{escape(existing.display_name)}')")
+    print_line(t("CAT_RESTORED", key=key, display=escape(existing.display_name)))
     return 0
 
 
@@ -159,14 +157,21 @@ def rename_category(key: str, new_display_name: str) -> int:
 
     """
     if not new_display_name:
-        print_error("新しい display_name は空にできません")
+        print_error(t("CAT_NEW_DISPLAY_NAME_EMPTY"))
         return 1
     with open_db() as conn:
         existing = find_category(conn, key)
         if existing is None:
-            print_error(f"カテゴリ '{key}' が存在しません")
+            print_error(t("CAT_NOT_FOUND", key=key))
             return 1
         with conn:
             update_category_display_name(conn, key, new_display_name)
-    print_line(f"変更: {key} '{escape(existing.display_name)}' → '{escape(new_display_name)}'")
+    print_line(
+        t(
+            "CAT_RENAMED",
+            key=key,
+            old_display=escape(existing.display_name),
+            new_display=escape(new_display_name),
+        )
+    )
     return 0
