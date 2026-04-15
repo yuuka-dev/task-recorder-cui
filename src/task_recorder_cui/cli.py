@@ -37,6 +37,15 @@ def build_parser() -> argparse.ArgumentParser:
         action="version",
         version=f"tsk {__version__}",
     )
+    parser.add_argument(
+        "--lang",
+        choices=("ja", "en"),
+        default=None,
+        help=(
+            "Output language (ja or en). "
+            "Default: auto-detect from config/LANG, fallback to ja"
+        ),
+    )
 
     sub = parser.add_subparsers(dest="command", metavar="<command>")
 
@@ -147,6 +156,10 @@ def main(argv: list[str] | None = None) -> int:
     """
     parser = build_parser()
     args = parser.parse_args(argv)
+
+    from task_recorder_cui.i18n import set_lang
+
+    set_lang(args.lang)
 
     if args.command is None:
         from task_recorder_cui.menu import run as menu_run

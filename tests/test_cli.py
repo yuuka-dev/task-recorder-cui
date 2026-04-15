@@ -107,3 +107,37 @@ def test_cli_start_with_timer_flag(isolated_db, monkeypatch: pytest.MonkeyPatch)
     monkeypatch.setattr("task_recorder_cui.commands.start.spawn_daemon", lambda r: None)
     rc = main(["start", "dev", "desc", "--timer", "1h"])
     assert rc == 0
+
+
+def test_cli_lang_flag_switches_output(isolated_db) -> None:
+    """--lang en で current_lang が 'en' になる。"""
+    from task_recorder_cui.cli import main
+    from task_recorder_cui.i18n import current_lang, set_lang
+
+    try:
+        rc = main(["--lang", "en", "now"])
+        assert rc in (0, 1)  # セッション有無に関わらず
+        assert current_lang() == "en"
+    finally:
+        set_lang(None)
+
+
+def test_cli_lang_flag_ja(isolated_db) -> None:
+    """--lang ja で current_lang が 'ja' になる。"""
+    from task_recorder_cui.cli import main
+    from task_recorder_cui.i18n import current_lang, set_lang
+
+    try:
+        rc = main(["--lang", "ja", "now"])
+        assert rc in (0, 1)
+        assert current_lang() == "ja"
+    finally:
+        set_lang(None)
+
+
+def test_cli_invalid_lang_rejected() -> None:
+    """--lang fr は argparse が reject する (choices 制限)。"""
+    from task_recorder_cui.cli import main
+
+    with pytest.raises(SystemExit):
+        main(["--lang", "fr", "now"])
