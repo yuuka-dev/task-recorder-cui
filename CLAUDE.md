@@ -51,6 +51,8 @@ SQLiteファイル1個で完結: `~/.local/share/tsk/records.db`
 | started_at | TEXT NOT NULL | ISO8601 (timezone-aware) |
 | ended_at | TEXT | ISO8601 (NULLなら記録中) |
 | duration_minutes | INTEGER | 終了時に計算して埋める (NULLなら記録中) |
+| timer_target_at | TEXT | タイマー発火予定時刻 (ISO8601 UTC、NULLならタイマー未設定) |
+| timer_fired_at | TEXT | 実際の発火時刻 (NULLなら未発火) |
 
 ### 設計メモ
 
@@ -279,6 +281,34 @@ MVP (Phase 1-7) は v1.0.0 で完成。以降は以下の優先順で検討:
 - **Web ダッシュボード**: Next.js + Firestore (ObatLog スタック踏襲)
 - **ActivityWatch 連携**: 稼働時間比率を自動取得
 - **英語対応 (国際化)**: v1.0.0 で pyproject.toml の `description` は英語化済。以降のステップとして `README.en.md` 追加 → ツール本体の i18n (UI メッセージ / エラー文 / カテゴリ display_name の英語切替、`LANG=en` 対応) を検討
+
+## Phase 2.1 実装済み機能 (v1.1.0)
+
+- **任意時間タイマー**: `tsk start --timer 2h30m` または `tsk timer set 2h30m` で
+  記録中セッションに単発タイマーを設定できる。経過時に Windows 側スピーカーから
+  音を鳴らし、tsk メニュー閉時はデスクトップ通知 (MessageBox) で知らせる。
+  **ポモドーロ (繰り返しサイクル) は引き続きスコープ外** (上記「やらないこと」参照)。
+- **設定ファイル**: `~/.config/tsk/config.toml` で音ファイル、バーの色・スタイル、
+  言語を設定可能。`tsk config get/set/list/reset` で CLI 経由の編集も可能。
+- **プログレスバー**: メニューの「現在」行下と `tsk now` 出力末尾に、タイマー
+  設定時のみ `[=====>   ] 1h20m / 2h30m (53%)` 形式で表示される。
+
+## 設定ファイル
+
+- パス: `~/.config/tsk/config.toml` (`TSK_CONFIG_PATH` で上書き可)
+- 書式: TOML。未作成時はコード内デフォルトが使われる
+- スキーマ:
+  ```toml
+  [timer]
+  enabled = true                                   # false で機能無効化
+  sound_path = "/mnt/c/Windows/Media/Alarm01.wav"  # 発火時の WAV
+  notify_when_closed = true                        # メニュー閉時の MessageBox
+  [ui]
+  lang = "ja"           # ja / en
+  bar_color = "cyan"    # rich カラー名
+  bar_style = "solid"   # solid / rainbow / gradient
+  ```
+- ユーザが `C:\...` 形式のパスを設定すると自動的に `/mnt/c/...` に正規化される。
 
 ## ライセンス
 MIT (予定、pyproject.tomlに記載)
