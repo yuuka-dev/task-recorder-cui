@@ -114,9 +114,7 @@ def test_start_with_invalid_timer_errors_before_insert(
         assert count == 0
 
 
-def test_start_english_messages(
-    isolated_db: Path, capsys: pytest.CaptureFixture[str]
-) -> None:
+def test_start_english_messages(isolated_db: Path, capsys: pytest.CaptureFixture[str]) -> None:
     from task_recorder_cui.i18n import set_lang
 
     try:

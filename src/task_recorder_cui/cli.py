@@ -41,10 +41,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--lang",
         choices=("ja", "en"),
         default=None,
-        help=(
-            "Output language (ja or en). "
-            "Default: auto-detect from config/LANG, fallback to ja"
-        ),
+        help=("Output language (ja or en). Default: auto-detect from config/LANG, fallback to ja"),
     )
 
     sub = parser.add_subparsers(dest="command", metavar="<command>")

@@ -151,9 +151,7 @@ class TestRename:
 class TestEnglishOutput:
     """--lang en で英語メッセージが出力されることを確認する。"""
 
-    def test_cat_list_english(
-        self, isolated_db: Path, capsys: pytest.CaptureFixture[str]
-    ) -> None:
+    def test_cat_list_english(self, isolated_db: Path, capsys: pytest.CaptureFixture[str]) -> None:
         from task_recorder_cui.i18n import set_lang
 
         try:

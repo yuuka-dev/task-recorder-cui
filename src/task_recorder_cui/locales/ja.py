@@ -50,8 +50,7 @@ CAT_ALREADY_EXISTS = "カテゴリ '{key}' は既に存在します (display_nam
 CAT_NOT_FOUND = "カテゴリ '{key}' が存在しません"
 CAT_ADDED = "追加: {key} → '{display}'"
 CAT_REACTIVATED = (
-    "再有効化: {key} → '{display}' "
-    "(以前 archived だったカテゴリを復帰、display_name を上書き)"
+    "再有効化: {key} → '{display}' (以前 archived だったカテゴリを復帰、display_name を上書き)"
 )
 CAT_ALREADY_ARCHIVED = "'{key}' は既にアーカイブ済みです"
 CAT_ARCHIVED = "アーカイブ: {key} ('{display}')"
@@ -62,8 +61,7 @@ CAT_RENAMED = "変更: {key} '{old_display}' → '{new_display}'"
 # === Validate ===
 VALIDATE_KEY_EMPTY = "category key は空にできません"
 VALIDATE_KEY_INVALID_CHARS = (
-    "category key must match [a-z0-9_]+ "
-    "(ASCII lowercase/digit/underscore): {key!r}"
+    "category key must match [a-z0-9_]+ (ASCII lowercase/digit/underscore): {key!r}"
 )
 
 # === Summary / 参照系共通 ===
@@ -116,9 +114,7 @@ MENU_CHOICE_HELP = "ヘルプ (CLI コマンド一覧)"
 MENU_CHOICE_QUIT = "終了"
 MENU_PROMPT_CATEGORY = "カテゴリを選んでください"
 MENU_PROMPT_DESCRIPTION = "何をしましたか (任意、空欄可)"
-MENU_NO_ACTIVE_CATEGORIES = (
-    "有効なカテゴリがありません。先に『カテゴリ管理 → 追加』してください。"
-)
+MENU_NO_ACTIVE_CATEGORIES = "有効なカテゴリがありません。先に『カテゴリ管理 → 追加』してください。"
 MENU_NO_ACTIVE_CATEGORIES_SHORT = "active なカテゴリがありません"
 MENU_NO_ARCHIVED_CATEGORIES = "archived なカテゴリがありません"
 MENU_PROMPT_PRESS_ENTER = "[Enter で戻る]"

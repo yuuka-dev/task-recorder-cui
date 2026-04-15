@@ -45,8 +45,7 @@ CAT_ALREADY_EXISTS = "Category '{key}' already exists (display_name='{display}')
 CAT_NOT_FOUND = "Category '{key}' does not exist"
 CAT_ADDED = "Added: {key} -> '{display}'"
 CAT_REACTIVATED = (
-    "Reactivated: {key} -> '{display}' "
-    "(restored from archive, display_name overwritten)"
+    "Reactivated: {key} -> '{display}' (restored from archive, display_name overwritten)"
 )
 CAT_ALREADY_ARCHIVED = "'{key}' is already archived"
 CAT_ARCHIVED = "Archived: {key} ('{display}')"
@@ -57,8 +56,7 @@ CAT_RENAMED = "Renamed: {key} '{old_display}' -> '{new_display}'"
 # === Validate ===
 VALIDATE_KEY_EMPTY = "category key must not be empty"
 VALIDATE_KEY_INVALID_CHARS = (
-    "category key must match [a-z0-9_]+ "
-    "(ASCII lowercase/digit/underscore): {key!r}"
+    "category key must match [a-z0-9_]+ (ASCII lowercase/digit/underscore): {key!r}"
 )
 
 # === Summary / 参照系共通 ===
@@ -111,9 +109,7 @@ MENU_CHOICE_HELP = "Help (CLI commands)"
 MENU_CHOICE_QUIT = "Quit"
 MENU_PROMPT_CATEGORY = "Select a category"
 MENU_PROMPT_DESCRIPTION = "What did you do? (optional, blank to skip)"
-MENU_NO_ACTIVE_CATEGORIES = (
-    "No active categories. Add one first via 'Categories -> Add'."
-)
+MENU_NO_ACTIVE_CATEGORIES = "No active categories. Add one first via 'Categories -> Add'."
 MENU_NO_ACTIVE_CATEGORIES_SHORT = "No active categories"
 MENU_NO_ARCHIVED_CATEGORIES = "No archived categories"
 MENU_PROMPT_PRESS_ENTER = "[Press Enter to go back]"

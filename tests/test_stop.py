@@ -58,9 +58,7 @@ def test_stop_clears_active_timer(isolated_db) -> None:
         assert row["timer_target_at"] is None
 
 
-def test_stop_english_output(
-    isolated_db: Path, capsys: pytest.CaptureFixture[str]
-) -> None:
+def test_stop_english_output(isolated_db: Path, capsys: pytest.CaptureFixture[str]) -> None:
     from datetime import timedelta
 
     from task_recorder_cui.commands import stop as stop_cmd
@@ -86,9 +84,7 @@ def test_stop_english_output(
         set_lang(None)
 
 
-def test_stop_no_active_english(
-    isolated_db: Path, capsys: pytest.CaptureFixture[str]
-) -> None:
+def test_stop_no_active_english(isolated_db: Path, capsys: pytest.CaptureFixture[str]) -> None:
     from task_recorder_cui.commands import stop as stop_cmd
     from task_recorder_cui.i18n import set_lang
 

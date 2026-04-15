@@ -25,6 +25,7 @@ def set_lang(lang: str | None) -> None:
 
     Raises:
         ValueError: サポート外の言語コードを渡した場合
+
     """
     global _current_lang
     if lang is not None and lang not in _LOCALES:
@@ -70,6 +71,7 @@ def t(key: str, /, **fmt: Any) -> str:
     Returns:
         解決済み文字列。言語モジュールに該当キーが無ければ ja にフォールバック、
         ja にも無ければ key 自体を返す (開発時のタイポを可視化)。
+
     """
     lang = current_lang()
     mod = _LOCALES.get(lang, ja)

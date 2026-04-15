@@ -81,9 +81,7 @@ def add_category(key: str, display_name: str) -> int:
         existing = find_category(conn, key)
         if existing is not None:
             if not existing.archived:
-                print_error(
-                    t("CAT_ALREADY_EXISTS", key=key, display=existing.display_name)
-                )
+                print_error(t("CAT_ALREADY_EXISTS", key=key, display=existing.display_name))
                 return 1
             with conn:
                 update_category_archived(conn, key, archived=False)
