@@ -357,7 +357,10 @@ MIT (予定、pyproject.tomlに記載)
 
 タグ打ち時のチェックリスト:
 - [ ] 上記 2 箇所を新バージョンに更新
-- [ ] `pip install -e .` で再インストール後、`tsk --version` が新バージョンを返すことを確認
+- [ ] `pip install -e .` で再インストール後，`tsk --version` が新バージョンを返すことを確認
 - [ ] `chore(release): version を X.Y.Z に bump` でコミット
 - [ ] dev → main の release PR をマージ
 - [ ] `git tag vX.Y.Z` / `git push origin vX.Y.Z`
+  - tag push で `.github/workflows/publish.yml` が発火し，PyPI trusted publishing (OIDC) 経由で自動発行される
+  - workflow 内で「tag の version == pyproject == `__init__`」の整合を検証しているので，2 箇所 bump を忘れると発行が止まる (事故防止)
+  - 初回セットアップ: PyPI プロジェクトの Publishing 設定で「GitHub Actions」を trusted publisher として登録 (owner=`yuuka-dev` / repo=`task-recorder-cui` / workflow=`publish.yml` / environment=`pypi`)
