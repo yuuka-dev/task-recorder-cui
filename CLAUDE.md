@@ -195,6 +195,10 @@ ruff format .                    # フォーマット
 - 時刻処理は全て datetime(timezone-aware)、DBにはISO8601文字列で保存、表示時にローカルタイムへ
 - SQLは生SQL (ORM不要)
 - 出力はprint()直書きせず、`io.py` 等にまとめた出力関数経由にする (将来のカラー化/i18nのため)
+- **ユーザ向け文字列は必ず `i18n.t()` 経由にする** (日本語リテラルの print 直書き禁止)。
+  例: `print_line(t("SESSION_NONE"))`。新規文字列を追加する際は `locales/ja.py`
+  と `locales/en.py` の両方にキーを追加する。`tests/test_i18n_coverage.py` が
+  片方漏れを CI で落とす。
 - エラーは早期returnで処理、握りつぶさない
 - サブコマンドごとにモジュール分割 (`cli/start.py`, `cli/stop.py`, `cli/week.py` 等)
 
@@ -267,6 +271,13 @@ task-recorder-cui/
 - 優先度機能 (時間記録に優先度は不要)
 - ポモドーロタイマー機能 (別ツール)
 
+## Phase 2.1 実装済み機能
+
+- **英語対応 (i18n)**: `--lang en` フラグ、`ui.lang = "en"` 設定、`LANG` 環境変数で
+  UI メッセージが英語化される。カテゴリ `display_name` はユーザ入力を尊重するため
+  翻訳対象外。argparse の `--help` は英語固定 (Phase 2.2 以降で対応検討)。
+  メッセージカタログは `src/task_recorder_cui/locales/{ja,en}.py` に定数で配置。
+
 ## Phase 2 計画 (MVP 後の拡張ロードマップ)
 
 MVP (Phase 1-7) は v1.0.0 で完成。以降は以下の優先順で検討:
@@ -280,7 +291,6 @@ MVP (Phase 1-7) は v1.0.0 で完成。以降は以下の優先順で検討:
 - **Android 版**: 同じ SQLite スキーマを Room に移植
 - **Web ダッシュボード**: Next.js + Firestore (ObatLog スタック踏襲)
 - **ActivityWatch 連携**: 稼働時間比率を自動取得
-- **英語対応 (国際化)**: v1.0.0 で pyproject.toml の `description` は英語化済。以降のステップとして `README.en.md` 追加 → ツール本体の i18n (UI メッセージ / エラー文 / カテゴリ display_name の英語切替、`LANG=en` 対応) を検討
 
 ## Phase 2.1 実装済み機能 (v1.1.0)
 
