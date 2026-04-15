@@ -33,13 +33,14 @@ class UIConfig:
     """UI 見た目の設定。
 
     Attributes:
-        lang: 'ja' or 'en'。i18n 実装後に利用される。
+        lang: 'ja' / 'en' / '' のいずれか。空文字列は「未設定」を意味し、
+            i18n 側で OS の LC_ALL / LANG にフォールバックする。
         bar_color: rich のカラー名 (red/green/cyan 等)。
         bar_style: 'solid' / 'rainbow' / 'gradient'。
 
     """
 
-    lang: str = "ja"
+    lang: str = ""
     bar_color: str = "cyan"
     bar_style: str = "solid"
 
@@ -153,7 +154,7 @@ def _from_raw(raw: dict[str, object]) -> Config:
         notify_when_closed=bool(timer_raw.get("notify_when_closed", True)),
     )
     ui = UIConfig(
-        lang=str(ui_raw.get("lang", "ja")),
+        lang=str(ui_raw.get("lang", "")),
         bar_color=str(ui_raw.get("bar_color", "cyan")),
         bar_style=str(ui_raw.get("bar_style", "solid")),
     )
