@@ -112,3 +112,31 @@ def test_start_with_invalid_timer_errors_before_insert(
     with open_db() as conn:
         count = conn.execute("SELECT COUNT(*) FROM records").fetchone()[0]
         assert count == 0
+
+
+def test_start_english_messages(
+    isolated_db: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    from task_recorder_cui.i18n import set_lang
+
+    try:
+        rc = main(["--lang", "en", "start", "dev", "english test"])
+        assert rc == 0
+        out = capsys.readouterr().out
+        assert "Started" in out
+    finally:
+        set_lang(None)
+
+
+def test_start_unknown_category_english(
+    isolated_db: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    from task_recorder_cui.i18n import set_lang
+
+    try:
+        rc = main(["--lang", "en", "start", "nonexistent", "x"])
+        assert rc == 1
+        err = capsys.readouterr().err
+        assert "does not exist" in err.lower() or "Category" in err
+    finally:
+        set_lang(None)
