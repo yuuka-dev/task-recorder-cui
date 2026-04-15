@@ -51,3 +51,126 @@ def test_parse_timer_spec_rejects_garbage() -> None:
 def test_parse_timer_spec_rejects_whitespace() -> None:
     with pytest.raises(ValueError, match="不正"):
         parse_timer_spec("2h 30m")
+
+
+# --- Task 10: play_sound / show_notification ---
+
+from pathlib import Path  # noqa: E402
+
+
+def test_play_sound_invokes_powershell(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """play_sound は powershell.exe を SoundPlayer で呼び出す。"""
+    import subprocess
+
+    from task_recorder_cui.services import timer as timer_mod
+    from task_recorder_cui.services.timer import play_sound
+
+    wav = tmp_path / "a.wav"
+    wav.write_bytes(b"")
+    calls: list[list[str]] = []
+
+    def fake_run(cmd: list[str], **_: object) -> subprocess.CompletedProcess[str]:
+        calls.append(cmd)
+        return subprocess.CompletedProcess(cmd, 0, "", "")
+
+    monkeypatch.setattr(timer_mod, "to_windows_path", lambda p: f"C:\\fake\\{p.name}")
+    monkeypatch.setattr(timer_mod.subprocess, "run", fake_run)
+
+    play_sound(wav)
+
+    assert len(calls) == 1
+    assert calls[0][0] == "powershell.exe"
+    joined = " ".join(calls[0])
+    assert "Media.SoundPlayer" in joined
+    assert "PlaySync" in joined
+    assert "C:\\fake\\a.wav" in joined
+
+
+def test_show_notification_invokes_powershell(monkeypatch: pytest.MonkeyPatch) -> None:
+    """show_notification は powershell.exe で MessageBox を呼び出す。"""
+    import subprocess
+
+    from task_recorder_cui.services import timer as timer_mod
+    from task_recorder_cui.services.timer import show_notification
+
+    calls: list[list[str]] = []
+
+    def fake_run(cmd: list[str], **_: object) -> subprocess.CompletedProcess[str]:
+        calls.append(cmd)
+        return subprocess.CompletedProcess(cmd, 0, "", "")
+
+    monkeypatch.setattr(timer_mod.subprocess, "run", fake_run)
+
+    show_notification("タイマー経過", "task-recorder-cui")
+
+    assert len(calls) == 1
+    assert calls[0][0] == "powershell.exe"
+    joined = " ".join(calls[0])
+    assert "MessageBox" in joined
+    assert "タイマー経過" in joined
+
+
+def test_play_sound_logs_on_failure(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """powershell 呼び出しに失敗してもログファイルに記録して例外を握りつぶす。"""
+    from task_recorder_cui.services import timer as timer_mod
+    from task_recorder_cui.services.timer import play_sound
+
+    wav = tmp_path / "a.wav"
+    wav.write_bytes(b"")
+
+    monkeypatch.setattr(timer_mod, "to_windows_path", lambda p: "C:\\x")
+    monkeypatch.setattr(
+        timer_mod, "timer_log_path", lambda: tmp_path / "timer.log"
+    )
+
+    def fake_run(*_: object, **__: object) -> object:
+        raise OSError("no powershell")
+
+    monkeypatch.setattr(timer_mod.subprocess, "run", fake_run)
+
+    play_sound(wav)  # 例外伝搬しない
+
+    log = (tmp_path / "timer.log").read_text()
+    assert "no powershell" in log or "play_sound" in log
+
+
+# --- Task 11: menu_lock / is_menu_alive ---
+
+
+def test_menu_lock_acquire_and_release(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from task_recorder_cui.services.timer import is_menu_alive, menu_lock
+
+    lock_path = tmp_path / "menu.lock"
+    monkeypatch.setattr(
+        "task_recorder_cui.services.timer.menu_lock_path", lambda: lock_path
+    )
+
+    assert not is_menu_alive()
+
+    with menu_lock():
+        assert lock_path.exists()
+        assert is_menu_alive()
+
+    assert not lock_path.exists()
+    assert not is_menu_alive()
+
+
+def test_is_menu_alive_false_for_dead_pid(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """lock ファイルに死んだ PID が書かれてたら is_menu_alive=False。"""
+    from task_recorder_cui.services.timer import is_menu_alive
+
+    lock_path = tmp_path / "menu.lock"
+    lock_path.write_text("99999999")  # 存在しない PID
+    monkeypatch.setattr(
+        "task_recorder_cui.services.timer.menu_lock_path", lambda: lock_path
+    )
+
+    assert not is_menu_alive()

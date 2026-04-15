@@ -4,7 +4,16 @@
 CLI / commands 層からはここだけを呼ぶ。
 """
 
+import contextlib
+import os
 import re
+import subprocess
+import traceback
+from collections.abc import Iterator
+from datetime import datetime
+from pathlib import Path
+
+from task_recorder_cui.utils.paths import to_windows_path
 
 # 2h30m / 30m / 2h / 150 / 150m を許容
 _TIMER_SPEC_RE = re.compile(r"^(?:(\d+)h)?(?:(\d+)m?)?$")
@@ -39,3 +48,120 @@ def parse_timer_spec(spec: str) -> int:
     if total < 1:
         raise ValueError(f"タイマーは 1 分以上を指定してください: {spec!r}")
     return total
+
+
+def timer_log_path() -> Path:
+    """タイマー機能のログファイルのパスを返す (テストで差し替え可能にする目的で関数化)。"""
+    return Path.home() / ".local" / "share" / "tsk" / "timer.log"
+
+
+def _log_failure(context: str, exc: BaseException) -> None:
+    """エラーをログに追記する (無害な best-effort)。"""
+    path = timer_log_path()
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with path.open("a", encoding="utf-8") as fp:
+            fp.write(
+                f"[{datetime.now().isoformat()}] {context}: {type(exc).__name__}: {exc}\n"
+            )
+            fp.write(traceback.format_exc())
+            fp.write("\n")
+    except OSError:
+        pass
+
+
+def play_sound(wav_path: Path) -> None:
+    """WAV ファイルを Windows 側のスピーカーで再生する。
+
+    エラーは握りつぶしてログに記録する (タイマー処理は音が鳴らなくても継続する
+    べき)。
+
+    Args:
+        wav_path: 再生する WAV ファイル (POSIX パス、存在前提)。
+
+    """
+    try:
+        win_path = to_windows_path(wav_path)
+        ps_cmd = (
+            f"(New-Object Media.SoundPlayer '{win_path}').PlaySync()"
+        )
+        subprocess.run(
+            ["powershell.exe", "-NoProfile", "-Command", ps_cmd],
+            capture_output=True,
+            check=False,
+        )
+    except Exception as e:
+        _log_failure("play_sound", e)
+
+
+def show_notification(message: str, title: str = "task-recorder-cui") -> None:
+    """Windows のデスクトップに MessageBox を表示する。
+
+    Args:
+        message: 本文。
+        title: ウィンドウタイトル。
+
+    """
+    try:
+        msg_escaped = message.replace("'", "''")
+        title_escaped = title.replace("'", "''")
+        ps_cmd = (
+            "Add-Type -AssemblyName System.Windows.Forms; "
+            f"[System.Windows.Forms.MessageBox]::Show('{msg_escaped}', '{title_escaped}')"
+        )
+        subprocess.run(
+            ["powershell.exe", "-NoProfile", "-Command", ps_cmd],
+            capture_output=True,
+            check=False,
+        )
+    except Exception as e:
+        _log_failure("show_notification", e)
+
+
+def menu_lock_path() -> Path:
+    """menu 起動検出用 lock ファイルのパス。"""
+    return Path.home() / ".local" / "share" / "tsk" / "menu.lock"
+
+
+def is_menu_alive() -> bool:
+    """tsk メニューが現在起動中かを判定する。
+
+    lock ファイルから PID を読み、その PID のプロセスが存在するかで判定。
+
+    Returns:
+        生存中なら True。lock が無い / PID 死亡は False。
+
+    """
+    path = menu_lock_path()
+    if not path.exists():
+        return False
+    try:
+        pid_text = path.read_text().strip()
+        pid = int(pid_text)
+    except (OSError, ValueError):
+        return False
+    try:
+        os.kill(pid, 0)
+    except (ProcessLookupError, PermissionError):
+        return False
+    except OSError:
+        return False
+    return True
+
+
+@contextlib.contextmanager
+def menu_lock() -> Iterator[None]:
+    """menu 実行中であることを示す lock を取得する。
+
+    コンテキスト終了時に lock ファイルを削除する。二重取得は許容 (上書き)。
+    """
+    path = menu_lock_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(str(os.getpid()))
+    try:
+        yield
+    finally:
+        try:
+            path.unlink(missing_ok=True)
+        except OSError:
+            pass
