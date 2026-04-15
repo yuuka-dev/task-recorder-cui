@@ -5,7 +5,9 @@
   2. config.ui.lang
   3. LC_ALL / LANG 環境変数
   4. 'ja' (デフォルト)
-未対応言語 (fr など) はサイレントに 'ja' フォールバック。
+config / 環境変数に未対応言語 (fr など) が入っている場合はサイレントに
+'ja' にフォールバックする。一方、set_lang() にサポート外言語を渡した
+場合は ValueError を送出する。
 """
 
 import os
@@ -15,6 +17,7 @@ from task_recorder_cui.locales import en, ja
 
 _LOCALES: dict[str, object] = {"ja": ja, "en": en}
 _current_lang: str | None = None
+_auto_detected_lang: str | None = None
 
 
 def set_lang(lang: str | None) -> None:
@@ -27,16 +30,26 @@ def set_lang(lang: str | None) -> None:
         ValueError: サポート外の言語コードを渡した場合
 
     """
-    global _current_lang
+    global _current_lang, _auto_detected_lang
     if lang is not None and lang not in _LOCALES:
         raise ValueError(f"unsupported lang: {lang}")
     _current_lang = lang
+    _auto_detected_lang = None
 
 
 def current_lang() -> str:
     """現在の有効な言語 ('ja' or 'en') を返す。"""
+    global _auto_detected_lang
     if _current_lang is not None:
         return _current_lang
+    if _auto_detected_lang is not None:
+        return _auto_detected_lang
+    _auto_detected_lang = _detect_auto_lang()
+    return _auto_detected_lang
+
+
+def _detect_auto_lang() -> str:
+    """config / 環境変数 / 既定値から言語を自動判定する。"""
     cfg_lang = _config_lang()
     if cfg_lang in _LOCALES:
         return cfg_lang
@@ -56,7 +69,7 @@ def _config_lang() -> str | None:
         return None
     try:
         return load_config().ui.lang
-    except Exception:
+    except FileNotFoundError:
         return None
 
 

@@ -102,3 +102,23 @@ def test_current_lang_default_ja(monkeypatch: pytest.MonkeyPatch) -> None:
 
     monkeypatch.setattr("task_recorder_cui.config.load_config", fake_load)
     assert i18n.current_lang() == "ja"
+
+
+def test_current_lang_auto_detection_cached(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("LANG", "en_US.UTF-8")
+    monkeypatch.delenv("LC_ALL", raising=False)
+    i18n.set_lang(None)
+    call_count = 0
+
+    def fake_load():
+        nonlocal call_count
+        from task_recorder_cui.config import Config, UIConfig
+
+        call_count += 1
+        return Config(ui=UIConfig(lang=""))  # 空 = 未設定扱い
+
+    monkeypatch.setattr("task_recorder_cui.config.load_config", fake_load)
+    assert i18n.current_lang() == "en"
+    assert i18n.current_lang() == "en"
+    assert i18n.t("SESSION_NONE") == "No active session"
+    assert call_count == 1
