@@ -17,9 +17,7 @@ def test_set_timer_target_writes_iso8601(isolated_db) -> None:
     """set_timer_target で timer_target_at に UTC ISO8601 が書き込まれる。"""
     with open_db() as conn:
         started = now_utc()
-        rec_id = insert_record(
-            conn, category_key="dev", description="x", started_at=started
-        )
+        rec_id = insert_record(conn, category_key="dev", description="x", started_at=started)
         target = started + timedelta(minutes=30)
         with conn:
             set_timer_target(conn, rec_id, target_at=target)
@@ -35,9 +33,7 @@ def test_clear_timer_target_sets_null(isolated_db) -> None:
     """clear_timer_target で timer_target_at が NULL に戻る。"""
     with open_db() as conn:
         started = now_utc()
-        rec_id = insert_record(
-            conn, category_key="dev", description="x", started_at=started
-        )
+        rec_id = insert_record(conn, category_key="dev", description="x", started_at=started)
         target = started + timedelta(minutes=30)
         with conn:
             set_timer_target(conn, rec_id, target_at=target)
@@ -52,9 +48,7 @@ def test_mark_timer_fired_sets_fired_at(isolated_db) -> None:
     """mark_timer_fired で timer_fired_at が set される (target は残る)。"""
     with open_db() as conn:
         started = now_utc()
-        rec_id = insert_record(
-            conn, category_key="dev", description="x", started_at=started
-        )
+        rec_id = insert_record(conn, category_key="dev", description="x", started_at=started)
         target = started + timedelta(minutes=30)
         fired = started + timedelta(minutes=30, seconds=2)
         with conn:

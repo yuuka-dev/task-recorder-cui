@@ -235,9 +235,7 @@ def update_record_end(
     )
 
 
-def set_timer_target(
-    conn: sqlite3.Connection, record_id: int, *, target_at: datetime
-) -> None:
+def set_timer_target(conn: sqlite3.Connection, record_id: int, *, target_at: datetime) -> None:
     """レコードにタイマー目標時刻を設定する。
 
     Args:
@@ -266,9 +264,7 @@ def clear_timer_target(conn: sqlite3.Connection, record_id: int) -> None:
     )
 
 
-def mark_timer_fired(
-    conn: sqlite3.Connection, record_id: int, *, fired_at: datetime
-) -> None:
+def mark_timer_fired(conn: sqlite3.Connection, record_id: int, *, fired_at: datetime) -> None:
     """レコードのタイマー発火時刻を記録する。target_at はそのまま。
 
     Args:

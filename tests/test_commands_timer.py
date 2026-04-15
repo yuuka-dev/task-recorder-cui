@@ -16,9 +16,7 @@ def mock_spawn(monkeypatch: pytest.MonkeyPatch) -> list[int]:
     def fake_spawn(rid: int) -> None:
         calls.append(rid)
 
-    monkeypatch.setattr(
-        "task_recorder_cui.commands.timer.spawn_daemon", fake_spawn
-    )
+    monkeypatch.setattr("task_recorder_cui.commands.timer.spawn_daemon", fake_spawn)
     return calls
 
 
@@ -32,9 +30,7 @@ def test_set_no_active_session_errors(
 
 def test_set_writes_target_and_spawns_daemon(isolated_db, mock_spawn) -> None:
     with open_db() as conn, conn:
-        rec_id = insert_record(
-            conn, category_key="dev", description="x", started_at=now_utc()
-        )
+        rec_id = insert_record(conn, category_key="dev", description="x", started_at=now_utc())
     rc = timer_cmd.set_("30m")
     assert rc == 0
     with open_db() as conn:
@@ -48,9 +44,7 @@ def test_set_invalid_spec_errors(
     isolated_db, mock_spawn, capsys: pytest.CaptureFixture[str]
 ) -> None:
     with open_db() as conn:
-        insert_record(
-            conn, category_key="dev", description="x", started_at=now_utc()
-        )
+        insert_record(conn, category_key="dev", description="x", started_at=now_utc())
     rc = timer_cmd.set_("bogus")
     assert rc == 1
     assert "不正" in capsys.readouterr().err
@@ -58,9 +52,7 @@ def test_set_invalid_spec_errors(
 
 def test_cancel_clears_target(isolated_db, mock_spawn) -> None:
     with open_db() as conn, conn:
-        insert_record(
-            conn, category_key="dev", description="x", started_at=now_utc()
-        )
+        insert_record(conn, category_key="dev", description="x", started_at=now_utc())
     timer_cmd.set_("30m")
     rc = timer_cmd.cancel()
     assert rc == 0
@@ -74,9 +66,7 @@ def test_cancel_no_timer_errors(
     isolated_db, mock_spawn, capsys: pytest.CaptureFixture[str]
 ) -> None:
     with open_db() as conn, conn:
-        insert_record(
-            conn, category_key="dev", description="x", started_at=now_utc()
-        )
+        insert_record(conn, category_key="dev", description="x", started_at=now_utc())
     rc = timer_cmd.cancel()
     assert rc == 1
     assert "タイマー" in capsys.readouterr().err

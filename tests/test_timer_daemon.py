@@ -18,9 +18,7 @@ def make_record(isolated_db):
     def _f(target_offset_minutes: int):
         with open_db() as conn:
             started = now_utc()
-            rec_id = insert_record(
-                conn, category_key="dev", description="t", started_at=started
-            )
+            rec_id = insert_record(conn, category_key="dev", description="t", started_at=started)
             with conn:
                 set_timer_target(
                     conn,
@@ -65,9 +63,7 @@ def test_daemon_fires_when_target_passed(make_record) -> None:
     assert fired == [rec_id]
 
 
-def test_daemon_waits_for_future_target(
-    make_record, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_daemon_waits_for_future_target(make_record, monkeypatch: pytest.MonkeyPatch) -> None:
     """target が未来なら sleep し続け、時刻到来で fire する。"""
     rec_id = make_record(target_offset_minutes=60)
 

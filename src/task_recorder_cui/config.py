@@ -7,7 +7,8 @@
 
 import os
 import tomllib
-from dataclasses import asdict, dataclass, field, fields as dc_fields, replace
+from dataclasses import asdict, dataclass, field, replace
+from dataclasses import fields as dc_fields
 from pathlib import Path
 
 

@@ -58,9 +58,7 @@ def test_parse_timer_spec_rejects_whitespace() -> None:
 from pathlib import Path  # noqa: E402
 
 
-def test_play_sound_invokes_powershell(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_play_sound_invokes_powershell(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """play_sound は powershell.exe を SoundPlayer で呼び出す。"""
     import subprocess
 
@@ -112,9 +110,7 @@ def test_show_notification_invokes_powershell(monkeypatch: pytest.MonkeyPatch) -
     assert "タイマー経過" in joined
 
 
-def test_play_sound_logs_on_failure(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_play_sound_logs_on_failure(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """powershell 呼び出しに失敗してもログファイルに記録して例外を握りつぶす。"""
     from task_recorder_cui.services import timer as timer_mod
     from task_recorder_cui.services.timer import play_sound
@@ -123,9 +119,7 @@ def test_play_sound_logs_on_failure(
     wav.write_bytes(b"")
 
     monkeypatch.setattr(timer_mod, "to_windows_path", lambda p: "C:\\x")
-    monkeypatch.setattr(
-        timer_mod, "timer_log_path", lambda: tmp_path / "timer.log"
-    )
+    monkeypatch.setattr(timer_mod, "timer_log_path", lambda: tmp_path / "timer.log")
 
     def fake_run(*_: object, **__: object) -> object:
         raise OSError("no powershell")
@@ -141,15 +135,11 @@ def test_play_sound_logs_on_failure(
 # --- Task 11: menu_lock / is_menu_alive ---
 
 
-def test_menu_lock_acquire_and_release(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_menu_lock_acquire_and_release(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     from task_recorder_cui.services.timer import is_menu_alive, menu_lock
 
     lock_path = tmp_path / "menu.lock"
-    monkeypatch.setattr(
-        "task_recorder_cui.services.timer.menu_lock_path", lambda: lock_path
-    )
+    monkeypatch.setattr("task_recorder_cui.services.timer.menu_lock_path", lambda: lock_path)
 
     assert not is_menu_alive()
 
@@ -161,17 +151,13 @@ def test_menu_lock_acquire_and_release(
     assert not is_menu_alive()
 
 
-def test_is_menu_alive_false_for_dead_pid(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_is_menu_alive_false_for_dead_pid(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """lock ファイルに死んだ PID が書かれてたら is_menu_alive=False。"""
     from task_recorder_cui.services.timer import is_menu_alive
 
     lock_path = tmp_path / "menu.lock"
     lock_path.write_text("99999999")  # 存在しない PID
-    monkeypatch.setattr(
-        "task_recorder_cui.services.timer.menu_lock_path", lambda: lock_path
-    )
+    monkeypatch.setattr("task_recorder_cui.services.timer.menu_lock_path", lambda: lock_path)
 
     assert not is_menu_alive()
 

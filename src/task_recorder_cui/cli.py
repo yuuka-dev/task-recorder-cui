@@ -107,18 +107,14 @@ def build_parser() -> argparse.ArgumentParser:
 
     # --- タイマー ---
     p_timer = sub.add_parser("timer", help="タイマー管理")
-    timer_sub = p_timer.add_subparsers(
-        dest="timer_action", metavar="<action>", required=True
-    )
+    timer_sub = p_timer.add_subparsers(dest="timer_action", metavar="<action>", required=True)
     p_timer_set = timer_sub.add_parser("set", help="記録中セッションにタイマー設定")
     p_timer_set.add_argument("spec", help="タイマー指定 (例: 2h30m)")
     timer_sub.add_parser("cancel", help="タイマーをキャンセル")
 
     # --- 設定 ---
     p_config = sub.add_parser("config", help="設定管理")
-    config_sub = p_config.add_subparsers(
-        dest="config_action", metavar="<action>", required=True
-    )
+    config_sub = p_config.add_subparsers(dest="config_action", metavar="<action>", required=True)
     config_sub.add_parser("list", help="全設定を表示")
     p_cfg_get = config_sub.add_parser("get", help="単一キーを表示")
     p_cfg_get.add_argument("key", help="設定キー (例: timer.sound_path)")
@@ -159,9 +155,7 @@ def main(argv: list[str] | None = None) -> int:
 
     # --- 記録系 (Phase 3) ---
     if args.command == "start":
-        return start_cmd.run(
-            args.category_key, args.description, timer_spec=args.timer_spec
-        )
+        return start_cmd.run(args.category_key, args.description, timer_spec=args.timer_spec)
     if args.command == "stop":
         return stop_cmd.run()
     if args.command == "now":

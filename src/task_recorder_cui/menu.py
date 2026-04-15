@@ -29,7 +29,6 @@ from task_recorder_cui.repo import (
 from task_recorder_cui.services.timer import menu_lock
 from task_recorder_cui.utils.time import format_duration, humanize_relative, now_utc
 
-
 _RAINBOW_COLORS = ["red", "yellow", "green", "cyan", "blue", "magenta"]
 
 
@@ -141,7 +140,9 @@ def render_timer_bar(
         suffix = " [bold red blink]タイマー経過[/bold red blink]"
     elif fired_at is not None:
         suffix = " [bold]タイマー経過[/bold]"
-    return f"[{colored}] {format_duration(elapsed_m)} / {format_duration(target_m)} ({pct}%){suffix}"
+    elapsed_s = format_duration(elapsed_m)
+    target_s = format_duration(target_m)
+    return f"[{colored}] {elapsed_s} / {target_s} ({pct}%){suffix}"
 
 
 def _active_session_line(now: datetime, conn: sqlite3.Connection) -> str:

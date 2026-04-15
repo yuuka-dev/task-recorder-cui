@@ -69,18 +69,14 @@ def test_archivedカテゴリはexit1(isolated_db: Path, capsys: pytest.CaptureF
     assert _fetch_records(isolated_db) == []
 
 
-def test_start_with_timer_sets_target(
-    isolated_db, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_start_with_timer_sets_target(isolated_db, monkeypatch: pytest.MonkeyPatch) -> None:
     """start --timer 30m で records に timer_target_at が書き込まれる。"""
     from task_recorder_cui.commands import start as start_cmd
     from task_recorder_cui.db import open_db
     from task_recorder_cui.repo import find_active_record
 
     calls: list[int] = []
-    monkeypatch.setattr(
-        "task_recorder_cui.commands.start.spawn_daemon", lambda r: calls.append(r)
-    )
+    monkeypatch.setattr("task_recorder_cui.commands.start.spawn_daemon", lambda r: calls.append(r))
 
     rc = start_cmd.run("dev", "with-timer", timer_spec="30m")
     assert rc == 0
@@ -91,15 +87,11 @@ def test_start_with_timer_sets_target(
     assert len(calls) == 1
 
 
-def test_start_without_timer_does_not_spawn(
-    isolated_db, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_start_without_timer_does_not_spawn(isolated_db, monkeypatch: pytest.MonkeyPatch) -> None:
     from task_recorder_cui.commands import start as start_cmd
 
     calls: list[int] = []
-    monkeypatch.setattr(
-        "task_recorder_cui.commands.start.spawn_daemon", lambda r: calls.append(r)
-    )
+    monkeypatch.setattr("task_recorder_cui.commands.start.spawn_daemon", lambda r: calls.append(r))
 
     rc = start_cmd.run("dev", "no-timer", timer_spec=None)
     assert rc == 0

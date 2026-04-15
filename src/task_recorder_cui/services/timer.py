@@ -63,9 +63,7 @@ def _log_failure(context: str, exc: BaseException) -> None:
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
         with path.open("a", encoding="utf-8") as fp:
-            fp.write(
-                f"[{datetime.now().isoformat()}] {context}: {type(exc).__name__}: {exc}\n"
-            )
+            fp.write(f"[{datetime.now().isoformat()}] {context}: {type(exc).__name__}: {exc}\n")
             fp.write(traceback.format_exc())
             fp.write("\n")
     except OSError:
@@ -84,9 +82,7 @@ def play_sound(wav_path: Path) -> None:
     """
     try:
         win_path = to_windows_path(wav_path)
-        ps_cmd = (
-            f"(New-Object Media.SoundPlayer '{win_path}').PlaySync()"
-        )
+        ps_cmd = f"(New-Object Media.SoundPlayer '{win_path}').PlaySync()"
         subprocess.run(
             ["powershell.exe", "-NoProfile", "-Command", ps_cmd],
             capture_output=True,
@@ -163,10 +159,8 @@ def menu_lock() -> Iterator[None]:
     try:
         yield
     finally:
-        try:
+        with contextlib.suppress(OSError):
             path.unlink(missing_ok=True)
-        except OSError:
-            pass
 
 
 def _load_record(conn, record_id: int):

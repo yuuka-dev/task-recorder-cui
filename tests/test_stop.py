@@ -48,15 +48,11 @@ def test_stop_clears_active_timer(isolated_db) -> None:
 
     with open_db() as conn, conn:
         started = now_utc()
-        rec_id = insert_record(
-            conn, category_key="dev", description="x", started_at=started
-        )
+        rec_id = insert_record(conn, category_key="dev", description="x", started_at=started)
         set_timer_target(conn, rec_id, target_at=started + timedelta(minutes=30))
 
     rc = stop_cmd.run()
     assert rc == 0
     with open_db() as conn:
-        row = conn.execute(
-            "SELECT timer_target_at FROM records WHERE id = ?", (rec_id,)
-        ).fetchone()
+        row = conn.execute("SELECT timer_target_at FROM records WHERE id = ?", (rec_id,)).fetchone()
         assert row["timer_target_at"] is None

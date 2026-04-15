@@ -1,6 +1,6 @@
-"""WSL2 環境でのパス変換ユーティリティ。
+r"""WSL2 環境でのパス変換ユーティリティ。
 
-ユーザが Windows 形式のパス (C:\\...) を入力しても内部では POSIX パスで統一する。
+ユーザが Windows 形式のパス (C:\...) を入力しても内部では POSIX パスで統一する。
 powershell.exe に渡す際は逆方向の変換を行う。
 """
 
@@ -13,13 +13,13 @@ _UNC_RE = re.compile(r"^\\\\")
 
 
 def is_windows_path(value: str) -> bool:
-    """文字列が Windows スタイルのパスなら True。
+    r"""文字列が Windows スタイルのパスなら True。
 
     Args:
         value: 判定対象の文字列。
 
     Returns:
-        'C:\\foo' や '\\\\wsl$\\...' のような Windows パスなら True、
+        'C:\foo' や '\\wsl$\...' のような Windows パスなら True、
         それ以外 ('/mnt/c/...', '/home/...', '~/...') は False。
 
     """
@@ -65,7 +65,7 @@ def normalize_user_path(value: str) -> Path:
 
 
 def to_windows_path(path: Path) -> str:
-    """POSIX な Path を Windows 形式の文字列に変換する (wslpath -w)。
+    r"""POSIX な Path を Windows 形式の文字列に変換する (wslpath -w)。
 
     powershell.exe に渡すとき用。失敗時は RuntimeError。
 
@@ -73,7 +73,7 @@ def to_windows_path(path: Path) -> str:
         path: 変換元 Path。
 
     Returns:
-        'C:\\...' 形式の Windows パス文字列。
+        'C:\...' 形式の Windows パス文字列。
 
     Raises:
         RuntimeError: wslpath が失敗した場合。
@@ -86,7 +86,5 @@ def to_windows_path(path: Path) -> str:
         check=False,
     )
     if result.returncode != 0:
-        raise RuntimeError(
-            f"wslpath に失敗しました: {result.stderr.strip() or 'unknown error'}"
-        )
+        raise RuntimeError(f"wslpath に失敗しました: {result.stderr.strip() or 'unknown error'}")
     return result.stdout.strip()

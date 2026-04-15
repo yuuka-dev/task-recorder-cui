@@ -100,13 +100,11 @@ def test_recent_records_lines_respects_limit(isolated_db) -> None:
 
 def test_render_timer_bar_with_active_timer() -> None:
     """活性タイマー (未発火) の場合、'<経過>m / <目標>m (<%>%)' を返す。"""
-    from datetime import timezone
-
     from task_recorder_cui.menu import render_timer_bar
 
-    now = datetime(2026, 4, 14, 14, 30, tzinfo=timezone.utc)
-    started = datetime(2026, 4, 14, 13, 0, tzinfo=timezone.utc)
-    target = datetime(2026, 4, 14, 15, 30, tzinfo=timezone.utc)
+    now = datetime(2026, 4, 14, 14, 30, tzinfo=UTC)
+    started = datetime(2026, 4, 14, 13, 0, tzinfo=UTC)
+    target = datetime(2026, 4, 14, 15, 30, tzinfo=UTC)
     text = render_timer_bar(
         now=now,
         started_at=started,
@@ -123,14 +121,13 @@ def test_render_timer_bar_with_active_timer() -> None:
 
 
 def test_render_timer_bar_fired_shows_expired() -> None:
-    from datetime import timezone
 
     from task_recorder_cui.menu import render_timer_bar
 
-    now = datetime(2026, 4, 14, 16, 0, tzinfo=timezone.utc)
-    started = datetime(2026, 4, 14, 13, 0, tzinfo=timezone.utc)
-    target = datetime(2026, 4, 14, 15, 30, tzinfo=timezone.utc)
-    fired = datetime(2026, 4, 14, 15, 30, tzinfo=timezone.utc)
+    now = datetime(2026, 4, 14, 16, 0, tzinfo=UTC)
+    started = datetime(2026, 4, 14, 13, 0, tzinfo=UTC)
+    target = datetime(2026, 4, 14, 15, 30, tzinfo=UTC)
+    fired = datetime(2026, 4, 14, 15, 30, tzinfo=UTC)
     text = render_timer_bar(
         now=now,
         started_at=started,
@@ -145,12 +142,10 @@ def test_render_timer_bar_fired_shows_expired() -> None:
 
 def test_render_timer_bar_no_timer_returns_empty() -> None:
     """タイマー未設定なら空文字 (呼び出し側が行を出さない)。"""
-    from datetime import timezone
-
     from task_recorder_cui.menu import render_timer_bar
 
-    now = datetime(2026, 4, 14, 14, tzinfo=timezone.utc)
-    started = datetime(2026, 4, 14, 13, tzinfo=timezone.utc)
+    now = datetime(2026, 4, 14, 14, tzinfo=UTC)
+    started = datetime(2026, 4, 14, 13, tzinfo=UTC)
     text = render_timer_bar(
         now=now,
         started_at=started,
@@ -168,29 +163,25 @@ def test_render_timer_bar_no_timer_returns_empty() -> None:
 
 def test_should_flash_when_fired_recently() -> None:
     """fired_at が 5 秒以内なら点滅対象。"""
-    from datetime import timezone
-
     from task_recorder_cui.menu import should_flash
 
-    now = datetime(2026, 4, 14, 14, 30, tzinfo=timezone.utc)
-    fired = datetime(2026, 4, 14, 14, 29, 57, tzinfo=timezone.utc)
+    now = datetime(2026, 4, 14, 14, 30, tzinfo=UTC)
+    fired = datetime(2026, 4, 14, 14, 29, 57, tzinfo=UTC)
     assert should_flash(now=now, fired_at=fired, window_seconds=5) is True
 
 
 def test_should_flash_false_after_window() -> None:
-    from datetime import timezone
 
     from task_recorder_cui.menu import should_flash
 
-    now = datetime(2026, 4, 14, 14, 30, tzinfo=timezone.utc)
-    fired = datetime(2026, 4, 14, 14, 29, 50, tzinfo=timezone.utc)
+    now = datetime(2026, 4, 14, 14, 30, tzinfo=UTC)
+    fired = datetime(2026, 4, 14, 14, 29, 50, tzinfo=UTC)
     assert should_flash(now=now, fired_at=fired, window_seconds=5) is False
 
 
 def test_should_flash_false_when_none() -> None:
-    from datetime import timezone
 
     from task_recorder_cui.menu import should_flash
 
-    now = datetime(2026, 4, 14, 14, 30, tzinfo=timezone.utc)
+    now = datetime(2026, 4, 14, 14, 30, tzinfo=UTC)
     assert should_flash(now=now, fired_at=None, window_seconds=5) is False

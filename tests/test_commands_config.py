@@ -30,9 +30,7 @@ def test_get_prints_value(isolated_config, capsys: pytest.CaptureFixture[str]) -
     assert out == "True"
 
 
-def test_get_unknown_key_errors(
-    isolated_config, capsys: pytest.CaptureFixture[str]
-) -> None:
+def test_get_unknown_key_errors(isolated_config, capsys: pytest.CaptureFixture[str]) -> None:
     rc = config_cmd.get("timer.nope")
     assert rc == 1
     err = capsys.readouterr().err
@@ -47,9 +45,7 @@ def test_set_writes_file(isolated_config: Path) -> None:
     assert cfg.ui.bar_color == "red"
 
 
-def test_set_invalid_bool_errors(
-    isolated_config, capsys: pytest.CaptureFixture[str]
-) -> None:
+def test_set_invalid_bool_errors(isolated_config, capsys: pytest.CaptureFixture[str]) -> None:
     rc = config_cmd.set_("timer.enabled", "maybe")
     assert rc == 1
     err = capsys.readouterr().err
