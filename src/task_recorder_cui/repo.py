@@ -24,8 +24,14 @@ def row_to_category(row: sqlite3.Row) -> Category:
 
 
 def row_to_record(row: sqlite3.Row) -> Record:
-    """DB行を Record に変換する。記録中セッション (ended_at IS NULL) にも対応。"""
+    """DB行を Record に変換する。記録中セッション (ended_at IS NULL) にも対応。
+
+    timer カラムは v0 DB との互換のため存在チェックしてから読む。
+    """
     ended_at_raw = row["ended_at"]
+    keys = row.keys()
+    target_raw = row["timer_target_at"] if "timer_target_at" in keys else None
+    fired_raw = row["timer_fired_at"] if "timer_fired_at" in keys else None
     return Record(
         id=row["id"],
         category_key=row["category_key"],
@@ -33,6 +39,8 @@ def row_to_record(row: sqlite3.Row) -> Record:
         started_at=from_iso(row["started_at"]),
         ended_at=from_iso(ended_at_raw) if ended_at_raw else None,
         duration_minutes=row["duration_minutes"],
+        timer_target_at=from_iso(target_raw) if target_raw else None,
+        timer_fired_at=from_iso(fired_raw) if fired_raw else None,
     )
 
 

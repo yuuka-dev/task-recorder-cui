@@ -32,6 +32,8 @@ class Record:
     """時間記録1件。
 
     ended_at と duration_minutes が None の場合は記録中セッション。
+    timer_target_at が set されていればタイマー設定済、timer_fired_at が set
+    されていれば既に発火済 (音鳴ったあと)。
 
     Attributes:
         id: 主キー。
@@ -40,6 +42,8 @@ class Record:
         started_at: 開始時刻 (tz付き)。
         ended_at: 終了時刻 (記録中ならNone)。
         duration_minutes: 記録時間の分数 (記録中ならNone)。
+        timer_target_at: タイマー発火予定時刻 (未設定ならNone)。
+        timer_fired_at: 実際に発火した時刻 (未発火ならNone)。
 
     """
 
@@ -49,3 +53,5 @@ class Record:
     started_at: datetime
     ended_at: datetime | None
     duration_minutes: int | None
+    timer_target_at: datetime | None = None
+    timer_fired_at: datetime | None = None

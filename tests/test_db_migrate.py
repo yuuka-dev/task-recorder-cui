@@ -88,3 +88,23 @@ def test_migrate_preserves_existing_records(tmp_path: Path) -> None:
     assert row["timer_target_at"] is None
     assert row["timer_fired_at"] is None
     conn.close()
+
+
+def test_row_to_record_includes_timer_columns(tmp_path: Path) -> None:
+    """migrate 後の records 行から Record dataclass に変換できる (timer カラム込み)。"""
+    from task_recorder_cui.repo import row_to_record
+
+    db_path = tmp_path / "row.db"
+    conn = connect(db_path)
+    initialize(conn)
+    conn.execute(
+        "INSERT INTO records (category_key, description, started_at, timer_target_at) "
+        "VALUES (?, ?, ?, ?)",
+        ("dev", "with-timer", "2026-04-14T12:00:00+00:00", "2026-04-14T14:30:00+00:00"),
+    )
+    conn.commit()
+    row = conn.execute("SELECT * FROM records WHERE description = 'with-timer'").fetchone()
+    record = row_to_record(row)
+    assert record.timer_target_at is not None
+    assert record.timer_fired_at is None
+    conn.close()
