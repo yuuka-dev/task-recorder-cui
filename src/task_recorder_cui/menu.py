@@ -26,6 +26,7 @@ from task_recorder_cui.repo import (
     list_all_categories,
     list_recent_records,
 )
+from task_recorder_cui.services.timer import menu_lock
 from task_recorder_cui.utils.time import format_duration, humanize_relative, now_utc
 
 
@@ -468,10 +469,18 @@ def run() -> int:
     内部で呼ぶ commands.*.run() の戻り値は意図的に捨てる: メニューはラッパー層で
     あり、終了コードでの成否伝搬は CLI 単発呼び出しの責務とする。
 
+    実行中は menu_lock を取得し、タイマー daemon 側が「メニュー起動中」を
+    検出できるようにする (閉時の MessageBox 抑止のため)。
+
     Returns:
         常に 0。
 
     """
+    with menu_lock():
+        return _run_loop()
+
+
+def _run_loop() -> int:
     while True:
         now = now_utc()
         with open_db() as conn:
