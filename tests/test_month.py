@@ -38,3 +38,15 @@ def test_calendarフラグで今月表記になる(
     exit_code = main(["month", "--calendar"])
     assert exit_code == 0
     assert "今月" in capsys.readouterr().out
+
+
+def test_month_english(isolated_db: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    from task_recorder_cui.i18n import set_lang
+
+    try:
+        rc = main(["--lang", "en", "month"])
+        assert rc == 0
+        out = capsys.readouterr().out
+        assert "Last 30 days" in out
+    finally:
+        set_lang(None)

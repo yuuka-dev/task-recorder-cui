@@ -61,5 +61,38 @@ VALIDATE_KEY_INVALID_CHARS = (
     "(ASCII lowercase/digit/underscore): {key!r}"
 )
 
+# === Summary / 参照系共通 ===
+SUMMARY_NO_RECORDS = "No records"
+SUMMARY_TOTAL = "Total: {total}"
+SUMMARY_TOTAL_WITH_ACTIVE = "Total: {total} (includes active)"
+SUMMARY_DAILY_AVG_SUFFIX = "/ daily avg {avg}"
+SUMMARY_BREAKDOWN_TITLE = "Daily"
+SUMMARY_BREAKDOWN_COL_DATE = "Date"
+SUMMARY_BREAKDOWN_COL_TOTAL = "Total"
+SUMMARY_RECORDING_TAG = "recording {elapsed}"
+
+# === Today ===
+TODAY_HEADER = "{date_iso} ({weekday})"
+
+# === Week ===
+WEEK_LABEL_ROLLING = "Last 7 days"
+WEEK_LABEL_CALENDAR = "This week"
+WEEK_HEADER = "{label} ({from_date} to {to_date})"
+
+# === Month ===
+MONTH_LABEL_ROLLING = "Last 30 days"
+MONTH_LABEL_CALENDAR = "This month"
+MONTH_HEADER = "{label} ({from_date} to {to_date})"
+
+# === Range ===
+RANGE_HEADER = "Range ({from_date} to {to_date})"
+RANGE_INVALID_FROM = "--from has invalid date format (YYYY-MM-DD): {value!r}"
+RANGE_INVALID_TO = "--to has invalid date format (YYYY-MM-DD): {value!r}"
+RANGE_FROM_AFTER_TO = "--from ({from_date}) must be on or before --to ({to_date})"
+
+# === All ===
+ALL_TITLE = "All time"
+ALL_HEADER_SINCE = "All time (since {from_date})"
+
 # === Errors ===
 ERROR_INVALID_KEY = "Invalid category key: {key}"

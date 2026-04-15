@@ -9,6 +9,7 @@ from task_recorder_cui.commands._summary import (
     today_local,
 )
 from task_recorder_cui.db import open_db
+from task_recorder_cui.i18n import t
 from task_recorder_cui.io import print_line, print_table
 from task_recorder_cui.utils.time import format_duration
 
@@ -43,15 +44,15 @@ def run(*, calendar: bool = False) -> int:
     with open_db() as conn:
         summary = aggregate_period(conn, start, end)
 
-    label = "今週" if calendar else "直近7日"
-    title = f"{label} ({start.isoformat()} 〜 {end.isoformat()})"
+    label = t("WEEK_LABEL_CALENDAR") if calendar else t("WEEK_LABEL_ROLLING")
+    title = t("WEEK_HEADER", label=label, from_date=start.isoformat(), to_date=end.isoformat())
     print_line(title)
 
     if summary.total_minutes == 0:
-        print_line("記録なし")
+        print_line(t("SUMMARY_NO_RECORDS"))
         return 0
 
-    print_table(render_breakdown_table(summary, title="日別"))
-    print_line(f"合計: {format_duration(summary.total_minutes)}")
+    print_table(render_breakdown_table(summary, title=t("SUMMARY_BREAKDOWN_TITLE")))
+    print_line(t("SUMMARY_TOTAL", total=format_duration(summary.total_minutes)))
     render_category_totals(summary, with_daily_avg=True)
     return 0

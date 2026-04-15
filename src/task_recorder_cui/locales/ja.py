@@ -66,5 +66,38 @@ VALIDATE_KEY_INVALID_CHARS = (
     "(ASCII lowercase/digit/underscore): {key!r}"
 )
 
+# === Summary / 参照系共通 ===
+SUMMARY_NO_RECORDS = "記録なし"
+SUMMARY_TOTAL = "合計: {total}"
+SUMMARY_TOTAL_WITH_ACTIVE = "合計: {total} (記録中含む)"
+SUMMARY_DAILY_AVG_SUFFIX = "/ 日平均 {avg}"
+SUMMARY_BREAKDOWN_TITLE = "日別"
+SUMMARY_BREAKDOWN_COL_DATE = "日付"
+SUMMARY_BREAKDOWN_COL_TOTAL = "合計"
+SUMMARY_RECORDING_TAG = "記録中 {elapsed}"
+
+# === Today ===
+TODAY_HEADER = "{date_iso} ({weekday})"
+
+# === Week ===
+WEEK_LABEL_ROLLING = "直近7日"
+WEEK_LABEL_CALENDAR = "今週"
+WEEK_HEADER = "{label} ({from_date} 〜 {to_date})"
+
+# === Month ===
+MONTH_LABEL_ROLLING = "直近30日"
+MONTH_LABEL_CALENDAR = "今月"
+MONTH_HEADER = "{label} ({from_date} 〜 {to_date})"
+
+# === Range ===
+RANGE_HEADER = "期間指定 ({from_date} 〜 {to_date})"
+RANGE_INVALID_FROM = "--from の日付形式が不正です (YYYY-MM-DD): {value!r}"
+RANGE_INVALID_TO = "--to の日付形式が不正です (YYYY-MM-DD): {value!r}"
+RANGE_FROM_AFTER_TO = "--from ({from_date}) は --to ({to_date}) 以前である必要があります"
+
+# === All ===
+ALL_TITLE = "全累計"
+ALL_HEADER_SINCE = "全累計 ({from_date} 以降)"
+
 # === Errors ===
 ERROR_INVALID_KEY = "カテゴリ key が不正です: {key}"

@@ -10,6 +10,7 @@ from task_recorder_cui.commands._summary import (
     today_local,
 )
 from task_recorder_cui.db import open_db
+from task_recorder_cui.i18n import t
 from task_recorder_cui.io import print_line
 from task_recorder_cui.repo import find_active_record, row_to_record
 from task_recorder_cui.utils.time import format_duration, now_utc, to_iso
@@ -44,11 +45,15 @@ def run() -> int:
 
         display_names = summary.display_names
 
-    header = f"{today.strftime('%Y-%m-%d')} ({WEEKDAY_EN[today.weekday()]})"
+    header = t(
+        "TODAY_HEADER",
+        date_iso=today.strftime("%Y-%m-%d"),
+        weekday=WEEKDAY_EN[today.weekday()],
+    )
     print_line(header)
 
     if not records:
-        print_line("記録なし")
+        print_line(t("SUMMARY_NO_RECORDS"))
         return 0
 
     now = now_utc()
@@ -63,9 +68,13 @@ def run() -> int:
             print_line(f"{started_hm}-{ended_hm}  {label}  {format_duration(rec.duration_minutes)}")
         else:
             elapsed = max(0, int((now - rec.started_at).total_seconds() / 60))
-            print_line(f"{started_hm}-       {label}  (記録中 {format_duration(elapsed)})")
+            tag = t("SUMMARY_RECORDING_TAG", elapsed=format_duration(elapsed))
+            print_line(f"{started_hm}-       {label}  ({tag})")
 
-    note = " (記録中含む)" if summary.active_partial_minutes > 0 else ""
-    print_line(f"合計: {format_duration(summary.total_minutes)}{note}")
+    total_str = format_duration(summary.total_minutes)
+    if summary.active_partial_minutes > 0:
+        print_line(t("SUMMARY_TOTAL_WITH_ACTIVE", total=total_str))
+    else:
+        print_line(t("SUMMARY_TOTAL", total=total_str))
     render_category_totals(summary, with_daily_avg=False)
     return 0

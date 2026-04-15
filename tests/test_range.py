@@ -52,3 +52,17 @@ def test_from_to_必須(isolated_db: Path, capsys: pytest.CaptureFixture[str]) -
     with pytest.raises(SystemExit) as ex:
         main(["range"])
     assert ex.value.code == 2
+
+
+def test_range_english(isolated_db: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    from task_recorder_cui.i18n import set_lang
+
+    try:
+        rc = main(
+            ["--lang", "en", "range", "--from", "2026-04-14", "--to", "2026-04-01"]
+        )
+        assert rc == 1
+        err = capsys.readouterr().err
+        assert "must be on or before" in err
+    finally:
+        set_lang(None)

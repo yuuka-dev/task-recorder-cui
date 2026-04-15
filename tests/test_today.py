@@ -66,3 +66,17 @@ def test_記録中セッションは記録中マークで表示(
     out = capsys.readouterr().out
     assert "記録中" in out
     assert "実装中" in out
+
+
+def test_today_english_no_records(
+    isolated_db: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    from task_recorder_cui.i18n import set_lang
+
+    try:
+        rc = main(["--lang", "en", "today"])
+        assert rc == 0
+        out = capsys.readouterr().out
+        assert "No records" in out
+    finally:
+        set_lang(None)
