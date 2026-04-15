@@ -41,7 +41,7 @@ def run() -> int:
             and start_utc <= active.started_at < end_next_utc
             and all(r.id != active.id for r in records)
         ):
-            records.append(active)
+            records.append(active)  # pragma: no cover  # 防御的二重チェック
 
         display_names = summary.display_names
 

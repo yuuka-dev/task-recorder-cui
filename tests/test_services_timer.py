@@ -268,3 +268,302 @@ def test_spawn_daemon_uses_python_m_fallback(monkeypatch: pytest.MonkeyPatch) ->
     args = captured["args"]
     assert args[0:4] == ["python", "-m", "task_recorder_cui", "_timer-daemon"]
     assert "7" in args
+
+
+# --- 追加: 未カバー分岐 (coverage-100) ---
+
+
+def test_timer_log_path_points_to_expected_location() -> None:
+    """timer_log_path は $HOME/.local/share/tsk/timer.log を返す。"""
+    from task_recorder_cui.services.timer import timer_log_path
+
+    path = timer_log_path()
+    assert path.name == "timer.log"
+    assert "tsk" in path.parts
+
+
+def test_log_failure_swallows_os_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    """ログ書き込み先の親ディレクトリ作成が失敗しても例外を漏らさない。"""
+    from task_recorder_cui.services import timer as timer_mod
+
+    def _raise(*_args, **_kwargs):
+        raise OSError("boom")
+
+    monkeypatch.setattr(timer_mod.Path, "mkdir", _raise)
+    # 書き込み先が mkdir で落ちるので except OSError の分岐に入る
+    timer_mod._log_failure("ctx", RuntimeError("x"))
+
+
+def test_show_notification_logs_when_subprocess_raises(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from task_recorder_cui.services import timer as timer_mod
+
+    log_path = tmp_path / "timer.log"
+    monkeypatch.setattr(timer_mod, "timer_log_path", lambda: log_path)
+
+    def _raise(*_args, **_kwargs):
+        raise RuntimeError("powershell missing")
+
+    monkeypatch.setattr(timer_mod.subprocess, "run", _raise)
+    timer_mod.show_notification("msg", "title")
+    assert log_path.exists()
+    assert "show_notification" in log_path.read_text(encoding="utf-8")
+
+
+def test_is_menu_alive_false_when_lock_has_garbage(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from task_recorder_cui.services import timer as timer_mod
+
+    lock_path = tmp_path / "menu.lock"
+    lock_path.write_text("not-an-int")
+    monkeypatch.setattr(timer_mod, "menu_lock_path", lambda: lock_path)
+    assert timer_mod.is_menu_alive() is False
+
+
+def test_is_menu_alive_false_when_os_kill_raises_other_os_error(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from task_recorder_cui.services import timer as timer_mod
+
+    lock_path = tmp_path / "menu.lock"
+    lock_path.write_text("99999")
+    monkeypatch.setattr(timer_mod, "menu_lock_path", lambda: lock_path)
+
+    def _kill(_pid: int, _sig: int) -> None:
+        raise OSError("generic")  # ProcessLookupError / PermissionError 以外
+
+    monkeypatch.setattr(timer_mod.os, "kill", _kill)
+    assert timer_mod.is_menu_alive() is False
+
+
+def test_run_daemon_loop_exits_when_record_missing(isolated_db) -> None:
+    from task_recorder_cui.services.timer import run_daemon_loop
+
+    # レコード未作成で record_id=999 → _load_record が None → return 0
+    rc = run_daemon_loop(999, sleep_fn=lambda _s: None, max_iterations=3)
+    assert rc == 0
+
+
+def test_run_daemon_loop_exits_when_target_cleared(isolated_db) -> None:
+    from task_recorder_cui.db import open_db
+    from task_recorder_cui.repo import insert_record
+    from task_recorder_cui.services.timer import run_daemon_loop
+    from task_recorder_cui.utils.time import now_utc
+
+    with open_db() as conn, conn:
+        rec_id = insert_record(conn, category_key="dev", description="x", started_at=now_utc())
+
+    # timer_target_at が None のまま → 218 行目で return 0
+    rc = run_daemon_loop(rec_id, sleep_fn=lambda _s: None, max_iterations=3)
+    assert rc == 0
+
+
+def test_run_daemon_loop_exits_when_already_fired(isolated_db) -> None:
+    from task_recorder_cui.db import open_db
+    from task_recorder_cui.repo import insert_record, set_timer_target
+    from task_recorder_cui.services.timer import run_daemon_loop
+    from task_recorder_cui.utils.time import now_utc
+
+    with open_db() as conn, conn:
+        started = now_utc()
+        rec_id = insert_record(conn, category_key="dev", description="x", started_at=started)
+        from datetime import timedelta
+
+        set_timer_target(conn, rec_id, target_at=started + timedelta(minutes=30))
+        conn.execute(
+            "UPDATE records SET timer_fired_at = ? WHERE id = ?",
+            (started.isoformat(), rec_id),
+        )
+
+    rc = run_daemon_loop(rec_id, sleep_fn=lambda _s: None, max_iterations=3)
+    assert rc == 0
+
+
+def test_run_daemon_loop_exits_when_session_ended(isolated_db) -> None:
+    from datetime import timedelta
+
+    from task_recorder_cui.db import open_db
+    from task_recorder_cui.repo import insert_record, set_timer_target, update_record_end
+    from task_recorder_cui.services.timer import run_daemon_loop
+    from task_recorder_cui.utils.time import now_utc
+
+    with open_db() as conn, conn:
+        started = now_utc()
+        rec_id = insert_record(conn, category_key="dev", description="x", started_at=started)
+        set_timer_target(conn, rec_id, target_at=started + timedelta(minutes=30))
+        update_record_end(conn, rec_id, ended_at=now_utc(), duration_minutes=5)
+
+    rc = run_daemon_loop(rec_id, sleep_fn=lambda _s: None, max_iterations=3)
+    assert rc == 0
+
+
+def test_run_daemon_loop_reaches_max_iterations(isolated_db) -> None:
+    """target が未来のままなら max_iterations で抜ける (最終 return 0)。"""
+    from datetime import timedelta
+
+    from task_recorder_cui.db import open_db
+    from task_recorder_cui.repo import insert_record, set_timer_target
+    from task_recorder_cui.services.timer import run_daemon_loop
+    from task_recorder_cui.utils.time import now_utc
+
+    with open_db() as conn, conn:
+        started = now_utc()
+        rec_id = insert_record(conn, category_key="dev", description="x", started_at=started)
+        set_timer_target(conn, rec_id, target_at=started + timedelta(hours=1))
+
+    sleeps: list[float] = []
+    rc = run_daemon_loop(rec_id, sleep_fn=sleeps.append, max_iterations=2)
+    assert rc == 0
+    assert len(sleeps) == 2  # 2 回ループして抜けた
+
+
+def test_run_daemon_loop_fires_when_target_reached(isolated_db) -> None:
+    from datetime import timedelta
+
+    from task_recorder_cui.db import open_db
+    from task_recorder_cui.repo import insert_record, set_timer_target
+    from task_recorder_cui.services.timer import run_daemon_loop
+    from task_recorder_cui.utils.time import now_utc
+
+    with open_db() as conn, conn:
+        started = now_utc() - timedelta(hours=2)
+        rec_id = insert_record(conn, category_key="dev", description="x", started_at=started)
+        # target は過去 → 即発火
+        set_timer_target(conn, rec_id, target_at=started + timedelta(minutes=1))
+
+    fired: list[int] = []
+
+    def _fake_fire(record) -> None:
+        fired.append(record.id)
+
+    rc = run_daemon_loop(rec_id, sleep_fn=lambda _s: None, fire_fn=_fake_fire, max_iterations=3)
+    assert rc == 0
+    assert fired == [rec_id]
+
+
+def test_default_fire_plays_sound_and_notifies_when_closed(
+    isolated_db, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from task_recorder_cui import config as config_mod
+    from task_recorder_cui.config import Config, TimerConfig, UIConfig
+    from task_recorder_cui.db import open_db
+    from task_recorder_cui.repo import find_active_record, insert_record
+    from task_recorder_cui.services import timer as timer_mod
+    from task_recorder_cui.utils.time import now_utc
+
+    with open_db() as conn, conn:
+        rec_id = insert_record(conn, category_key="dev", description="x", started_at=now_utc())
+        conn.execute(
+            "UPDATE records SET timer_target_at = ? WHERE id = ?",
+            (now_utc().isoformat(), rec_id),
+        )
+
+    wav = tmp_path / "a.wav"
+    wav.write_bytes(b"RIFF")
+
+    monkeypatch.setattr(
+        config_mod,
+        "load_config",
+        lambda: Config(
+            timer=TimerConfig(enabled=True, sound_path=str(wav), notify_when_closed=True),
+            ui=UIConfig(),
+        ),
+    )
+
+    played: list[Path] = []
+    notified: list[str] = []
+
+    monkeypatch.setattr(timer_mod, "play_sound", lambda p: played.append(p))
+    monkeypatch.setattr(timer_mod, "show_notification", lambda msg: notified.append(msg))
+    monkeypatch.setattr(timer_mod, "is_menu_alive", lambda: False)
+
+    with open_db() as conn:
+        record = find_active_record(conn)
+        assert record is not None
+    timer_mod._default_fire(record)
+
+    assert played == [wav]
+    assert len(notified) == 1
+
+
+def test_default_fire_skips_sound_if_wav_missing(
+    isolated_db, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from task_recorder_cui import config as config_mod
+    from task_recorder_cui.config import Config, TimerConfig, UIConfig
+    from task_recorder_cui.db import open_db
+    from task_recorder_cui.repo import find_active_record, insert_record
+    from task_recorder_cui.services import timer as timer_mod
+    from task_recorder_cui.utils.time import now_utc
+
+    with open_db() as conn, conn:
+        rec_id = insert_record(conn, category_key="dev", description="x", started_at=now_utc())
+        conn.execute(
+            "UPDATE records SET timer_target_at = ? WHERE id = ?",
+            (now_utc().isoformat(), rec_id),
+        )
+
+    monkeypatch.setattr(
+        config_mod,
+        "load_config",
+        lambda: Config(
+            timer=TimerConfig(
+                enabled=True,
+                sound_path=str(tmp_path / "missing.wav"),
+                notify_when_closed=False,
+            ),
+            ui=UIConfig(),
+        ),
+    )
+
+    played: list[Path] = []
+    monkeypatch.setattr(timer_mod, "play_sound", lambda p: played.append(p))
+
+    with open_db() as conn:
+        record = find_active_record(conn)
+        assert record is not None
+    timer_mod._default_fire(record)
+    assert played == []  # wav が無いので play_sound は呼ばれない
+
+
+def test_default_fire_skips_notify_when_menu_alive(
+    isolated_db, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from task_recorder_cui import config as config_mod
+    from task_recorder_cui.config import Config, TimerConfig, UIConfig
+    from task_recorder_cui.db import open_db
+    from task_recorder_cui.repo import find_active_record, insert_record
+    from task_recorder_cui.services import timer as timer_mod
+    from task_recorder_cui.utils.time import now_utc
+
+    with open_db() as conn, conn:
+        rec_id = insert_record(conn, category_key="dev", description="x", started_at=now_utc())
+        conn.execute(
+            "UPDATE records SET timer_target_at = ? WHERE id = ?",
+            (now_utc().isoformat(), rec_id),
+        )
+
+    wav = tmp_path / "a.wav"
+    wav.write_bytes(b"RIFF")
+
+    monkeypatch.setattr(
+        config_mod,
+        "load_config",
+        lambda: Config(
+            timer=TimerConfig(enabled=True, sound_path=str(wav), notify_when_closed=True),
+            ui=UIConfig(),
+        ),
+    )
+
+    notified: list[str] = []
+    monkeypatch.setattr(timer_mod, "play_sound", lambda _p: None)
+    monkeypatch.setattr(timer_mod, "show_notification", lambda msg: notified.append(msg))
+    monkeypatch.setattr(timer_mod, "is_menu_alive", lambda: True)
+
+    with open_db() as conn:
+        record = find_active_record(conn)
+        assert record is not None
+    timer_mod._default_fire(record)
+    assert notified == []

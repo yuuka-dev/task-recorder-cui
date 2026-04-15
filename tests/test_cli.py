@@ -141,3 +141,58 @@ def test_cli_invalid_lang_rejected() -> None:
 
     with pytest.raises(SystemExit):
         main(["--lang", "fr", "now"])
+
+
+def test_cli_cat_rename_dispatches(isolated_db, monkeypatch: pytest.MonkeyPatch) -> None:
+    captured: list[tuple[str, str]] = []
+    from task_recorder_cui.commands import cat as cat_cmd
+
+    monkeypatch.setattr(
+        cat_cmd,
+        "rename_category",
+        lambda key, new_display_name: captured.append((key, new_display_name)) or 0,
+    )
+    rc = main(["cat", "rename", "dev", "開発2"])
+    assert rc == 0
+    assert captured == [("dev", "開発2")]
+
+
+def test_cli_config_get_dispatches(
+    isolated_db,
+    tmp_path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    monkeypatch.setenv("TSK_CONFIG_PATH", str(tmp_path / "cfg.toml"))
+    rc = main(["config", "get", "timer.enabled"])
+    assert rc == 0
+
+
+def test_cli_config_set_dispatches(isolated_db, tmp_path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("TSK_CONFIG_PATH", str(tmp_path / "cfg.toml"))
+    rc = main(["config", "set", "ui.bar_color", "red"])
+    assert rc == 0
+
+
+def test_cli_config_reset_dispatches(
+    isolated_db, tmp_path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("TSK_CONFIG_PATH", str(tmp_path / "cfg.toml"))
+    rc = main(["config", "reset", "ui.bar_color"])
+    assert rc == 0
+
+
+def test_cli_timer_daemon_hidden_dispatches(isolated_db, monkeypatch: pytest.MonkeyPatch) -> None:
+    """hidden subcommand `_timer-daemon` が daemon_main を呼ぶ。"""
+    calls: list[list[str]] = []
+
+    def _fake_daemon_main(argv: list[str]) -> int:
+        calls.append(argv)
+        return 0
+
+    import task_recorder_cui._timer_daemon as daemon_mod
+
+    monkeypatch.setattr(daemon_mod, "main", _fake_daemon_main)
+    rc = main(["_timer-daemon", "42"])
+    assert rc == 0
+    assert calls == [["42"]]

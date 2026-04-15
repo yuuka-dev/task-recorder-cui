@@ -251,7 +251,9 @@ def _render_header(now: datetime, conn: sqlite3.Connection) -> None:
             bar_style=cfg.ui.bar_style,
             width=30,
         )
-        if bar:
+        if (
+            bar
+        ):  # pragma: no branch  # target_at 存在時は render_timer_bar が空を返すケースは現状無い
             print_line(bar)
     recent = _recent_records_lines(now, conn)
     if recent:
@@ -378,7 +380,7 @@ def _cat_submenu() -> None:
             _cat_remove()
         elif action == "restore":
             _cat_restore()
-        elif action == "rename":
+        elif action == "rename":  # pragma: no branch  # questionary の choices で他値は弾かれる
             _cat_rename()
 
         _pause()

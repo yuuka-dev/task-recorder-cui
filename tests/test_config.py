@@ -149,3 +149,56 @@ def test_iter_all_keys() -> None:
     assert "ui.bar_color" in keys
     assert "ui.bar_style" in keys
     assert len(keys) == 6
+
+
+# --- 追加: 未カバー分岐 ---
+
+
+def test_toml_value_int_is_stringified() -> None:
+    """_toml_value が int を受けた時、素直に str(value) を返す。"""
+    from task_recorder_cui.config import _toml_value
+
+    assert _toml_value(42) == "42"
+
+
+def test_toml_value_unknown_type_raises() -> None:
+    from task_recorder_cui.config import _toml_value
+
+    with pytest.raises(TypeError, match="未対応の型"):
+        _toml_value(1.5)  # float は未対応
+
+
+def test_split_key_without_dot() -> None:
+    """ドット無しのキーは KeyError。"""
+    cfg = default_config()
+    with pytest.raises(KeyError, match="section.name"):
+        get_value(cfg, "nodot")
+
+
+def test_split_key_unknown_section() -> None:
+    cfg = default_config()
+    with pytest.raises(KeyError, match="未知のセクション"):
+        get_value(cfg, "nosuch.key")
+
+
+def test_set_value_int_field_coerced(monkeypatch: pytest.MonkeyPatch) -> None:
+    """int フィールドが設定されていれば int に coerce される。"""
+    from dataclasses import dataclass as _dataclass
+    from dataclasses import field as _field
+
+    from task_recorder_cui import config as config_mod
+
+    @_dataclass(frozen=True)
+    class IntConfig:
+        width: int = 10
+
+    @_dataclass(frozen=True)
+    class RootConfig:
+        timer: config_mod.TimerConfig = _field(default_factory=config_mod.TimerConfig)
+        ui: config_mod.UIConfig = _field(default_factory=config_mod.UIConfig)
+        extra: IntConfig = _field(default_factory=IntConfig)
+
+    monkeypatch.setitem(config_mod._SECTIONS, "extra", IntConfig)
+    root = RootConfig()
+    updated = config_mod.set_value(root, "extra.width", "25")
+    assert updated.extra.width == 25

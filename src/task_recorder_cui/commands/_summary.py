@@ -120,7 +120,9 @@ def aggregate_period(
             and start_utc <= active.started_at < end_next_utc
             and all(r.id != active.id for r in records)
         ):
-            records.append(active)
+            records.append(
+                active
+            )  # pragma: no cover  # 防御的二重チェック (実走行では records に含まれる)
 
     now = now_utc()
     day_buckets: dict[date, dict[str, int]] = defaultdict(lambda: defaultdict(int))
