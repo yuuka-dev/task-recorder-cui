@@ -235,6 +235,54 @@ def update_record_end(
     )
 
 
+def set_timer_target(
+    conn: sqlite3.Connection, record_id: int, *, target_at: datetime
+) -> None:
+    """レコードにタイマー目標時刻を設定する。
+
+    Args:
+        conn: DB接続。
+        record_id: 対象レコードの id。
+        target_at: タイマー発火予定時刻 (tz付き)。
+
+    """
+    conn.execute(
+        "UPDATE records SET timer_target_at = ? WHERE id = ?",
+        (to_iso(target_at), record_id),
+    )
+
+
+def clear_timer_target(conn: sqlite3.Connection, record_id: int) -> None:
+    """レコードのタイマー目標時刻を NULL に戻す。
+
+    Args:
+        conn: DB接続。
+        record_id: 対象レコードの id。
+
+    """
+    conn.execute(
+        "UPDATE records SET timer_target_at = NULL WHERE id = ?",
+        (record_id,),
+    )
+
+
+def mark_timer_fired(
+    conn: sqlite3.Connection, record_id: int, *, fired_at: datetime
+) -> None:
+    """レコードのタイマー発火時刻を記録する。target_at はそのまま。
+
+    Args:
+        conn: DB接続。
+        record_id: 対象レコードの id。
+        fired_at: 発火時刻 (tz付き)。
+
+    """
+    conn.execute(
+        "UPDATE records SET timer_fired_at = ? WHERE id = ?",
+        (to_iso(fired_at), record_id),
+    )
+
+
 def list_recent_records(conn: sqlite3.Connection, limit: int) -> list[Record]:
     """完了済みレコードを新しい順に最大 limit 件返す。
 
