@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "task-recorder-cui"
-version = "1.1.0"
+version = "1.1.1"
 description = "Minimal, no-friction CUI time tracker with weekly and monthly summaries"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -91,6 +91,14 @@ addopts = "-ra -q"
 [tool.coverage.run]
 source = ["task_recorder_cui"]
 branch = true
+# モジュール丸ごと subprocess / エントリ専用で、本プロセスで import されない
+# (= 通常のテストでは実行されない) ファイルはカバレッジ計測から除外する。
+# 機能検証は integration / smoke テスト側で担保する方針。
+omit = [
+    "*/task_recorder_cui/__main__.py",
+    "*/task_recorder_cui/main.py",
+    "*/task_recorder_cui/_timer_daemon.py",
+]
 
 [tool.coverage.report]
 exclude_lines = [
@@ -98,3 +106,5 @@ exclude_lines = [
     "if __name__ == .__main__.:",
     "raise NotImplementedError",
 ]
+fail_under = 100
+show_missing = true

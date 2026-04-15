@@ -271,27 +271,6 @@ task-recorder-cui/
 - 優先度機能 (時間記録に優先度は不要)
 - ポモドーロタイマー機能 (別ツール)
 
-## Phase 2.1 実装済み機能
-
-- **英語対応 (i18n)**: `--lang en` フラグ、`ui.lang = "en"` 設定、`LANG` 環境変数で
-  UI メッセージが英語化される。カテゴリ `display_name` はユーザ入力を尊重するため
-  翻訳対象外。argparse の `--help` は英語固定 (Phase 2.2 以降で対応検討)。
-  メッセージカタログは `src/task_recorder_cui/locales/{ja,en}.py` に定数で配置。
-
-## Phase 2 計画 (MVP 後の拡張ロードマップ)
-
-MVP (Phase 1-7) は v1.0.0 で完成。以降は以下の優先順で検討:
-
-- **データ可視化** (本命): jupyterlab + pandas + plotly で interactive グラフ
-  - `tsk export --csv` → notebook で `px.bar(df, x='date', y='minutes', color='category_key')` など
-  - dev deps に `jupyterlab` / `pandas` は投入済、`plotly` の追加のみでいける
-  - WSL2 運用は Jupyter Lab 中心 (Windows ブラウザが localhost に繋がる)
-- **CSV エクスポート**: `tsk export --from YYYY-MM-DD --to YYYY-MM-DD` (可視化の前段)
-- **過去レコードの編集**: `tsk edit <id>`
-- **Android 版**: 同じ SQLite スキーマを Room に移植
-- **Web ダッシュボード**: Next.js + Firestore (ObatLog スタック踏襲)
-- **ActivityWatch 連携**: 稼働時間比率を自動取得
-
 ## Phase 2.1 実装済み機能 (v1.1.0)
 
 - **任意時間タイマー**: `tsk start --timer 2h30m` または `tsk timer set 2h30m` で
@@ -302,6 +281,43 @@ MVP (Phase 1-7) は v1.0.0 で完成。以降は以下の優先順で検討:
   言語を設定可能。`tsk config get/set/list/reset` で CLI 経由の編集も可能。
 - **プログレスバー**: メニューの「現在」行下と `tsk now` 出力末尾に、タイマー
   設定時のみ `[=====>   ] 1h20m / 2h30m (53%)` 形式で表示される。
+- **英語対応 (i18n)**: `--lang en` フラグ、`ui.lang = "en"` 設定、`LANG` 環境変数で
+  UI メッセージが英語化される。カテゴリ `display_name` はユーザ入力を尊重するため
+  翻訳対象外。argparse の `--help` は英語固定 (Phase 2.2 以降で対応検討)。
+  メッセージカタログは `src/task_recorder_cui/locales/{ja,en}.py` に定数で配置。
+- **テストカバレッジ 100%**: 行 + 分岐ともに 100%。`pyproject.toml` の
+  `fail_under = 100` で回帰防止。subprocess 専用 (`_timer_daemon.py` ほか) は
+  `[tool.coverage.run].omit` で除外、到達不能な防御コードは `# pragma: no cover`。
+
+## 今後のロードマップ (Phase 2.2 以降)
+
+MVP (Phase 1-7) は v1.0.0、Phase 2.1 (timer + i18n) は v1.1.0 で完成。以降は
+GitHub milestone で区切って進める。
+
+### Phase 2.2 — タイマー周辺の仕上げ
+
+- **タイマー永続化**: WSL シャットダウン / 再起動を跨いだタイマー生存。Windows
+  タスクスケジューラ連携 (`schtasks.exe`) または Windows 側常駐プロセスを検討。
+  現状は detach subprocess のため WSL を落とすと失効する。
+- **argparse `--help` の i18n**: 現状は英語固定。gettext ベースか、argparse を
+  薄くラップして `t()` で解決するか検討。
+- **メニュー内 1 秒 tick**: rich.Live × questionary の本格併用。現状は「ループ
+  先頭再描画 + 発火時 5 秒だけ Live」で妥協。textual 移行も選択肢。
+
+### Phase 3 — データ可視化 (本命)
+
+- **CSV エクスポート**: `tsk export --from YYYY-MM-DD --to YYYY-MM-DD` (可視化の前段)。
+- **Jupyter + pandas + plotly**: notebook で
+  `px.bar(df, x='date', y='minutes', color='category_key')` など interactive グラフ。
+  dev deps に `jupyterlab` / `pandas` は投入済、`plotly` の追加のみでいける。
+  WSL2 運用は Jupyter Lab 中心 (Windows ブラウザが localhost に繋がる)。
+
+### Phase 4+ — その他候補
+
+- **過去レコードの編集**: `tsk edit <id>`
+- **Android 版**: 同じ SQLite スキーマを Room に移植
+- **Web ダッシュボード**: Next.js + Firestore (ObatLog スタック踏襲)
+- **ActivityWatch 連携**: 稼働時間比率を自動取得
 
 ## 設定ファイル
 
@@ -314,7 +330,7 @@ MVP (Phase 1-7) は v1.0.0 で完成。以降は以下の優先順で検討:
   sound_path = "/mnt/c/Windows/Media/Alarm01.wav"  # 発火時の WAV
   notify_when_closed = true                        # メニュー閉時の MessageBox
   [ui]
-  lang = "ja"           # ja / en
+  lang = ""             # "" = 未設定 (LANG 環境変数を参照) / "ja" / "en"
   bar_color = "cyan"    # rich カラー名
   bar_style = "solid"   # solid / rainbow / gradient
   ```
@@ -341,7 +357,10 @@ MIT (予定、pyproject.tomlに記載)
 
 タグ打ち時のチェックリスト:
 - [ ] 上記 2 箇所を新バージョンに更新
-- [ ] `pip install -e .` で再インストール後、`tsk --version` が新バージョンを返すことを確認
+- [ ] `pip install -e .` で再インストール後，`tsk --version` が新バージョンを返すことを確認
 - [ ] `chore(release): version を X.Y.Z に bump` でコミット
 - [ ] dev → main の release PR をマージ
 - [ ] `git tag vX.Y.Z` / `git push origin vX.Y.Z`
+  - tag push で `.github/workflows/publish.yml` が発火し，PyPI trusted publishing (OIDC) 経由で自動発行される
+  - workflow 内で「tag の version == pyproject == `__init__`」の整合を検証しているので，2 箇所 bump を忘れると発行が止まる (事故防止)
+  - 初回セットアップ: PyPI プロジェクトの Publishing 設定で「GitHub Actions」を trusted publisher として登録 (owner=`yuuka-dev` / repo=`task-recorder-cui` / workflow=`publish.yml` / environment=`pypi`)

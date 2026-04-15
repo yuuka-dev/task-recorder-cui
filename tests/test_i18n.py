@@ -140,3 +140,51 @@ def test_current_lang_re_detects_when_env_changes(
     assert i18n.current_lang() == "en"
     monkeypatch.setenv("LANG", "ja_JP.UTF-8")
     assert i18n.current_lang() == "ja"
+
+
+# --- 追加: 未カバー分岐 ---
+
+
+def test_current_lang_uses_config_lang_when_set(monkeypatch: pytest.MonkeyPatch) -> None:
+    """config.ui.lang に 'en' があれば env を無視して 'en'。"""
+    from task_recorder_cui import i18n as i18n_mod
+
+    i18n_mod.set_lang(None)  # set_lang(None) で auto-detect cache もクリア
+    monkeypatch.delenv("LC_ALL", raising=False)
+    monkeypatch.setenv("LANG", "ja_JP.UTF-8")
+
+    def _fake_config_lang() -> str:
+        return "en"
+
+    monkeypatch.setattr(i18n_mod, "_config_lang", _fake_config_lang)
+    assert i18n_mod.current_lang() == "en"
+    i18n_mod.set_lang(None)
+
+
+def test_config_lang_returns_none_on_import_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    """config モジュールの import が失敗した場合 None を返す (循環 import 回避の保険)。"""
+    import builtins
+
+    from task_recorder_cui import i18n as i18n_mod
+
+    real_import = builtins.__import__
+
+    def _fake_import(name: str, *args, **kwargs):
+        if name == "task_recorder_cui.config":
+            raise ImportError("simulated")
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", _fake_import)
+    assert i18n_mod._config_lang() is None
+
+
+def test_config_lang_returns_none_on_file_not_found(monkeypatch: pytest.MonkeyPatch) -> None:
+    """load_config が FileNotFoundError を投げた場合 None を返す。"""
+    from task_recorder_cui import config as config_mod
+    from task_recorder_cui import i18n as i18n_mod
+
+    def _raise() -> None:
+        raise FileNotFoundError("no config")
+
+    monkeypatch.setattr(config_mod, "load_config", _raise)
+    assert i18n_mod._config_lang() is None

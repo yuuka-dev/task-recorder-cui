@@ -174,3 +174,74 @@ class TestEnglishOutput:
             assert "does not exist" in capsys.readouterr().err
         finally:
             set_lang(None)
+
+
+# --- 追加: 未カバー分岐 ---
+
+
+def test_list_categories_empty_with_archived_only(
+    isolated_db, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """archived_only でヒットなし → CAT_LIST_EMPTY_ARCHIVED。"""
+    from task_recorder_cui.commands import cat as cat_cmd
+
+    rc = cat_cmd.list_categories(active_only=False, archived_only=True)
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "archived" in out or "アーカイブ" in out
+
+
+def test_list_categories_empty_with_active_only(
+    isolated_db, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """active_only でヒットなし → CAT_LIST_EMPTY_ACTIVE。"""
+    from task_recorder_cui.commands import cat as cat_cmd
+    from task_recorder_cui.db import open_db
+
+    with open_db() as conn, conn:
+        for key in ("game", "study", "dev"):
+            conn.execute("UPDATE categories SET archived = 1 WHERE key = ?", (key,))
+
+    rc = cat_cmd.list_categories(active_only=True, archived_only=False)
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "active" in out.lower() or "有効" in out or "active" in out
+
+
+def test_list_categories_empty_when_no_rows(
+    isolated_db, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """フィルタ無しで 0 件 → CAT_LIST_EMPTY。
+
+    初期データ自動投入で通常は到達しない分岐なので `list_all_categories` を
+    空返しに差し替える。
+    """
+    from task_recorder_cui.commands import cat as cat_cmd
+
+    monkeypatch.setattr(cat_cmd, "list_all_categories", lambda *a, **kw: [])
+    rc = cat_cmd.list_categories(active_only=False, archived_only=False)
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "カテゴリがありません" in out or "No categories" in out
+
+
+def test_add_category_empty_display_name_rejected(
+    isolated_db, capsys: pytest.CaptureFixture[str]
+) -> None:
+    from task_recorder_cui.commands import cat as cat_cmd
+
+    rc = cat_cmd.add_category("reading", "")
+    assert rc == 1
+    assert "空" in capsys.readouterr().err
+
+
+def test_restore_category_noop_when_already_active(
+    isolated_db, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """既に active なカテゴリを restore しても no-op で exit 0。"""
+    from task_recorder_cui.commands import cat as cat_cmd
+
+    rc = cat_cmd.restore_category("dev")  # dev は初期データで active
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "既に有効" in out or "already active" in out
