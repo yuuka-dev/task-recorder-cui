@@ -18,6 +18,7 @@ from task_recorder_cui.locales import en, ja
 _LOCALES: dict[str, object] = {"ja": ja, "en": en}
 _current_lang: str | None = None
 _auto_detected_lang: str | None = None
+_auto_detected_env: tuple[str, str] | None = None
 
 
 def set_lang(lang: str | None) -> None:
@@ -30,21 +31,24 @@ def set_lang(lang: str | None) -> None:
         ValueError: サポート外の言語コードを渡した場合
 
     """
-    global _current_lang, _auto_detected_lang
+    global _current_lang, _auto_detected_lang, _auto_detected_env
     if lang is not None and lang not in _LOCALES:
         raise ValueError(f"unsupported lang: {lang}")
     _current_lang = lang
     _auto_detected_lang = None
+    _auto_detected_env = None
 
 
 def current_lang() -> str:
     """現在の有効な言語 ('ja' or 'en') を返す。"""
-    global _auto_detected_lang
+    global _auto_detected_lang, _auto_detected_env
     if _current_lang is not None:
         return _current_lang
-    if _auto_detected_lang is not None:
+    env_sig = (os.environ.get("LC_ALL", ""), os.environ.get("LANG", ""))
+    if _auto_detected_lang is not None and _auto_detected_env == env_sig:
         return _auto_detected_lang
     _auto_detected_lang = _detect_auto_lang()
+    _auto_detected_env = env_sig
     return _auto_detected_lang
 
 
