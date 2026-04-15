@@ -142,7 +142,7 @@ def render_timer_bar(
         suffix = " [bold]タイマー経過[/bold]"
     elapsed_s = format_duration(elapsed_m)
     target_s = format_duration(target_m)
-    return f"[{colored}] {elapsed_s} / {target_s} ({pct}%){suffix}"
+    return f"{colored} {elapsed_s} / {target_s} ({pct}%){suffix}"
 
 
 def _active_session_line(now: datetime, conn: sqlite3.Connection) -> str:

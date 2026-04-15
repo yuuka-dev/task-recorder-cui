@@ -33,8 +33,9 @@ def test_get_prints_value(isolated_config, capsys: pytest.CaptureFixture[str]) -
 def test_get_unknown_key_errors(isolated_config, capsys: pytest.CaptureFixture[str]) -> None:
     rc = config_cmd.get("timer.nope")
     assert rc == 1
-    err = capsys.readouterr().err
+    err = capsys.readouterr().err.strip()
     assert "未知" in err or "timer.nope" in err
+    assert not err.startswith("'")
 
 
 def test_set_writes_file(isolated_config: Path) -> None:
@@ -58,6 +59,16 @@ def test_reset_restores_default(isolated_config: Path) -> None:
     assert rc == 0
     cfg = load_config()
     assert cfg.ui.bar_color == "cyan"
+
+
+def test_reset_unknown_key_errors_without_quote_wrapping(
+    isolated_config, capsys: pytest.CaptureFixture[str]
+) -> None:
+    rc = config_cmd.reset("timer.nope")
+    assert rc == 1
+    err = capsys.readouterr().err.strip()
+    assert "未知" in err or "timer.nope" in err
+    assert not err.startswith("'")
 
 
 def test_set_sound_path_converts_windows(

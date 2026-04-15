@@ -132,6 +132,67 @@ def test_play_sound_logs_on_failure(tmp_path: Path, monkeypatch: pytest.MonkeyPa
     assert "no powershell" in log or "play_sound" in log
 
 
+def test_play_sound_escapes_single_quote_in_path(monkeypatch: pytest.MonkeyPatch) -> None:
+    """PowerShell の single-quote 文字列を壊さないように '' でエスケープする。"""
+    import subprocess
+
+    from task_recorder_cui.services import timer as timer_mod
+    from task_recorder_cui.services.timer import play_sound
+
+    calls: list[list[str]] = []
+
+    def fake_run(cmd: list[str], **_: object) -> subprocess.CompletedProcess[str]:
+        calls.append(cmd)
+        return subprocess.CompletedProcess(cmd, 0, "", "")
+
+    monkeypatch.setattr(timer_mod, "to_windows_path", lambda _p: r"C:\O'Brien\a.wav")
+    monkeypatch.setattr(timer_mod.subprocess, "run", fake_run)
+
+    play_sound(Path("/tmp/a.wav"))
+
+    assert len(calls) == 1
+    ps_cmd = calls[0][-1]
+    assert "C:\\O''Brien\\a.wav" in ps_cmd
+
+
+def test_default_fire_marks_fired_even_when_disabled(
+    isolated_db, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """timer.enabled=false の場合も DB は発火済みに終端される。"""
+    from task_recorder_cui import config as config_mod
+    from task_recorder_cui.config import Config, TimerConfig, UIConfig
+    from task_recorder_cui.db import open_db
+    from task_recorder_cui.repo import find_active_record, insert_record
+    from task_recorder_cui.services.timer import _default_fire
+    from task_recorder_cui.utils.time import now_utc
+
+    with open_db() as conn, conn:
+        rec_id = insert_record(conn, category_key="dev", description="x", started_at=now_utc())
+        conn.execute(
+            "UPDATE records SET timer_target_at = ? WHERE id = ?",
+            (now_utc().isoformat(), rec_id),
+        )
+
+    monkeypatch.setattr(
+        config_mod,
+        "load_config",
+        lambda: Config(
+            timer=TimerConfig(enabled=False, sound_path="/tmp/no.wav", notify_when_closed=False),
+            ui=UIConfig(),
+        ),
+    )
+
+    with open_db() as conn:
+        record = find_active_record(conn)
+        assert record is not None
+    _default_fire(record)
+
+    with open_db() as conn:
+        row = conn.execute("SELECT timer_fired_at FROM records WHERE id = ?", (rec_id,)).fetchone()
+    assert row is not None
+    assert row["timer_fired_at"] is not None
+
+
 # --- Task 11: menu_lock / is_menu_alive ---
 
 

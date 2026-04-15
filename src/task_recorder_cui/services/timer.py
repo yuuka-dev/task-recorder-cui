@@ -82,7 +82,8 @@ def play_sound(wav_path: Path) -> None:
     """
     try:
         win_path = to_windows_path(wav_path)
-        ps_cmd = f"(New-Object Media.SoundPlayer '{win_path}').PlaySync()"
+        win_path_escaped = win_path.replace("'", "''")
+        ps_cmd = f"(New-Object Media.SoundPlayer '{win_path_escaped}').PlaySync()"
         subprocess.run(
             ["powershell.exe", "-NoProfile", "-Command", ps_cmd],
             capture_output=True,
@@ -259,6 +260,8 @@ def _default_fire(record) -> None:
 
     cfg = load_config()
     if not cfg.timer.enabled:
+        with _open_db() as conn, conn:
+            mark_timer_fired(conn, record.id, fired_at=now_utc())
         return
     wav = Path(cfg.timer.sound_path).expanduser()
     if wav.exists():

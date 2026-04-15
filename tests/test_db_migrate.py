@@ -108,3 +108,33 @@ def test_row_to_record_includes_timer_columns(tmp_path: Path) -> None:
     assert record.timer_target_at is not None
     assert record.timer_fired_at is None
     conn.close()
+
+
+def test_migrate_skips_existing_columns_even_if_user_version_is_old(tmp_path: Path) -> None:
+    """user_version が古くても実カラムがあるなら duplicate column で落ちない。"""
+    db_path = tmp_path / "already_columns.db"
+    conn = connect(db_path)
+    conn.executescript(
+        """
+        CREATE TABLE records (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            category_key TEXT NOT NULL,
+            description TEXT,
+            started_at TEXT NOT NULL,
+            ended_at TEXT,
+            duration_minutes INTEGER,
+            timer_target_at TEXT,
+            timer_fired_at TEXT
+        );
+        """
+    )
+    conn.execute("PRAGMA user_version = 0")
+    conn.commit()
+
+    migrate(conn)
+
+    assert _user_version(conn) == 1
+    cols = _columns(conn, "records")
+    assert cols.count("timer_target_at") == 1
+    assert cols.count("timer_fired_at") == 1
+    conn.close()

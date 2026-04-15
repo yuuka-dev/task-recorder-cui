@@ -27,7 +27,7 @@ def get(key: str) -> int:
     try:
         val = get_value(cfg, key)
     except KeyError as e:
-        print_error(str(e))
+        print_error(str(e.args[0]))
         return 1
     print_line(str(val))
     return 0
@@ -57,7 +57,7 @@ def reset(key: str) -> int:
     try:
         updated = reset_value(cfg, key)
     except KeyError as e:
-        print_error(str(e))
+        print_error(str(e.args[0]))
         return 1
     save_config(updated)
     print_line(f"{key} = {get_value(updated, key)}")

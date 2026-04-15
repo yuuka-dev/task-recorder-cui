@@ -115,8 +115,13 @@ def migrate(conn: sqlite3.Connection) -> None:
     version = conn.execute("PRAGMA user_version").fetchone()[0]
     if version < 1:
         with conn:
-            conn.execute("ALTER TABLE records ADD COLUMN timer_target_at TEXT")
-            conn.execute("ALTER TABLE records ADD COLUMN timer_fired_at TEXT")
+            columns = {
+                row["name"] for row in conn.execute("PRAGMA table_info(records)").fetchall()
+            }
+            if "timer_target_at" not in columns:
+                conn.execute("ALTER TABLE records ADD COLUMN timer_target_at TEXT")
+            if "timer_fired_at" not in columns:
+                conn.execute("ALTER TABLE records ADD COLUMN timer_fired_at TEXT")
             conn.execute("PRAGMA user_version = 1")
 
 
