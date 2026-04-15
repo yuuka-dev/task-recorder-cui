@@ -26,7 +26,123 @@ from task_recorder_cui.repo import (
     list_all_categories,
     list_recent_records,
 )
+from task_recorder_cui.services.timer import menu_lock
 from task_recorder_cui.utils.time import format_duration, humanize_relative, now_utc
+
+_RAINBOW_COLORS = ["red", "yellow", "green", "cyan", "blue", "magenta"]
+
+
+def _rainbow_text(text: str, *, phase_seconds: int) -> str:
+    """tick ごとに色が回る virtual rainbow バー。"""
+    segments: list[str] = []
+    for i, ch in enumerate(text):
+        color = _RAINBOW_COLORS[(i + phase_seconds) % len(_RAINBOW_COLORS)]
+        segments.append(f"[{color}]{ch}[/{color}]")
+    return "".join(segments)
+
+
+def _gradient_text(text: str, base_color: str) -> str:
+    """静的グラデーション (base_color → white)。"""
+    gradient_pairs = {
+        "cyan": ["cyan", "bright_cyan", "white"],
+        "red": ["red", "bright_red", "white"],
+        "green": ["green", "bright_green", "white"],
+        "blue": ["blue", "bright_blue", "white"],
+        "magenta": ["magenta", "bright_magenta", "white"],
+        "yellow": ["yellow", "bright_yellow", "white"],
+    }
+    palette = gradient_pairs.get(base_color, [base_color, "white"])
+    segments: list[str] = []
+    chunk = max(1, len(text) // len(palette))
+    for i, ch in enumerate(text):
+        color = palette[min(i // chunk, len(palette) - 1)]
+        segments.append(f"[{color}]{ch}[/{color}]")
+    return "".join(segments)
+
+
+def should_flash(
+    *,
+    now: datetime,
+    fired_at: datetime | None,
+    window_seconds: int,
+) -> bool:
+    """直近の発火から window_seconds 以内なら True (= 点滅表示する)。
+
+    Args:
+        now: 現在時刻 (tz付き)。
+        fired_at: タイマー発火時刻 (未発火なら None)。
+        window_seconds: 点滅表示する秒数の閾値。
+
+    Returns:
+        窓内なら True、それ以外は False。
+
+    """
+    if fired_at is None:
+        return False
+    delta = (now - fired_at).total_seconds()
+    return 0 <= delta < window_seconds
+
+
+def render_timer_bar(
+    *,
+    now: datetime,
+    started_at: datetime,
+    target_at: datetime | None,
+    fired_at: datetime | None,
+    bar_color: str,
+    bar_style: str,
+    width: int = 30,
+) -> str:
+    """タイマー状態を rich 用のマークアップ付き文字列に整形する (pure)。
+
+    Args:
+        now: 現在時刻 (tz付き)。
+        started_at: セッション開始時刻。
+        target_at: タイマー目標時刻 (未設定なら None)。
+        fired_at: 発火済なら時刻、未発火なら None。
+        bar_color: 'cyan' 等の rich カラー名。
+        bar_style: 'solid' / 'rainbow' / 'gradient'。
+        width: バーの幅 (文字数)。
+
+    Returns:
+        バーを含む 1 行の文字列。タイマー未設定なら空文字。
+
+    """
+    if target_at is None:
+        return ""
+
+    total_seconds = max(1, int((target_at - started_at).total_seconds()))
+    elapsed_seconds = max(0, int((now - started_at).total_seconds()))
+    ratio = min(1.0, elapsed_seconds / total_seconds)
+    filled = int(width * ratio)
+    if filled >= width:
+        bar_core = "=" * width
+    elif filled > 0:
+        bar_core = "=" * (filled - 1) + ">"
+    else:
+        bar_core = ""
+    bar_body = (bar_core + " " * (width - len(bar_core)))[:width]
+
+    if bar_style == "solid":
+        colored = f"[{bar_color}]{bar_body}[/{bar_color}]"
+    elif bar_style == "gradient":
+        colored = _gradient_text(bar_body, bar_color)
+    elif bar_style == "rainbow":
+        colored = _rainbow_text(bar_body, phase_seconds=elapsed_seconds)
+    else:
+        colored = bar_body
+
+    elapsed_m = elapsed_seconds // 60
+    target_m = total_seconds // 60
+    pct = int(ratio * 100)
+    suffix = ""
+    if should_flash(now=now, fired_at=fired_at, window_seconds=5):
+        suffix = " [bold red blink]タイマー経過[/bold red blink]"
+    elif fired_at is not None:
+        suffix = " [bold]タイマー経過[/bold]"
+    elapsed_s = format_duration(elapsed_m)
+    target_s = format_duration(target_m)
+    return f"{colored} {elapsed_s} / {target_s} ({pct}%){suffix}"
 
 
 def _active_session_line(now: datetime, conn: sqlite3.Connection) -> str:
@@ -109,11 +225,27 @@ _HELP_TEXT = """tsk コマンド一覧
 
 
 def _render_header(now: datetime, conn: sqlite3.Connection) -> None:
-    """ヘッダ (タイトル + 現在のセッション + 直近) を描画する。"""
+    """ヘッダ (タイトル + 現在のセッション + タイマーバー + 直近) を描画する。"""
+    from task_recorder_cui.config import load_config
+
     print_line()
     print_line("tsk - task recorder")
     print_line()
     print_line(_active_session_line(now, conn))
+    active = find_active_record(conn)
+    if active is not None and active.timer_target_at is not None:
+        cfg = load_config()
+        bar = render_timer_bar(
+            now=now,
+            started_at=active.started_at,
+            target_at=active.timer_target_at,
+            fired_at=active.timer_fired_at,
+            bar_color=cfg.ui.bar_color,
+            bar_style=cfg.ui.bar_style,
+            width=30,
+        )
+        if bar:
+            print_line(bar)
     recent = _recent_records_lines(now, conn)
     if recent:
         print_line()
@@ -152,8 +284,29 @@ def _show_help() -> None:
     print_line(_HELP_TEXT)
 
 
+def _prompt_to_start_params(
+    form: dict[str, str],
+) -> tuple[str, str | None, str | None]:
+    """メニュー入力 dict を `start_cmd.run` 引数に整形する (pure)。
+
+    Args:
+        form: questionary のフォーム結果 (category / description / timer キーを持つ)。
+
+    Returns:
+        (category_key, description | None, timer_spec | None) のタプル。
+        description と timer は空白 or 空文字なら None にする。
+
+    """
+    category = form["category"]
+    desc_raw = form.get("description", "").strip()
+    timer_raw = form.get("timer", "").strip()
+    description = desc_raw if desc_raw else None
+    timer_spec = timer_raw if timer_raw else None
+    return category, description, timer_spec
+
+
 def _start_flow() -> None:
-    """カテゴリ選択 → description 入力 → start 実行。
+    """カテゴリ選択 → description 入力 → タイマー入力 → start 実行。
 
     active カテゴリが 0 件なら案内のみ。キャンセル (Ctrl+C/ESC) で安全に戻る。
     """
@@ -176,9 +329,21 @@ def _start_flow() -> None:
     desc = questionary.text("何をしましたか (任意、空欄可)", default="").ask()
     if desc is None:
         return
-    desc_or_none: str | None = desc.strip() or None
 
-    start_cmd.run(key, desc_or_none)
+    timer_answer = questionary.text(
+        "タイマー (例: 2h30m、空欄でスキップ)",
+        default="",
+    ).ask()
+    if timer_answer is None:
+        return
+
+    form = {
+        "category": key,
+        "description": desc,
+        "timer": timer_answer,
+    }
+    category, desc_or_none, timer_spec = _prompt_to_start_params(form)
+    start_cmd.run(category, desc_or_none, timer_spec=timer_spec)
 
 
 def _cat_submenu() -> None:
@@ -321,10 +486,18 @@ def run() -> int:
     内部で呼ぶ commands.*.run() の戻り値は意図的に捨てる: メニューはラッパー層で
     あり、終了コードでの成否伝搬は CLI 単発呼び出しの責務とする。
 
+    実行中は menu_lock を取得し、タイマー daemon 側が「メニュー起動中」を
+    検出できるようにする (閉時の MessageBox 抑止のため)。
+
     Returns:
         常に 0。
 
     """
+    with menu_lock():
+        return _run_loop()
+
+
+def _run_loop() -> int:
     while True:
         now = now_utc()
         with open_db() as conn:

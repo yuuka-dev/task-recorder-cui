@@ -62,3 +62,48 @@ def test_add_minutesは整数必須(capsys: pytest.CaptureFixture[str]) -> None:
     with pytest.raises(SystemExit) as ex:
         main(["add", "study", "abc"])  # 整数でない
     assert ex.value.code == 2
+
+
+def test_cli_timer_set_dispatches(isolated_db, monkeypatch: pytest.MonkeyPatch) -> None:
+    from task_recorder_cui.db import open_db
+    from task_recorder_cui.repo import insert_record
+    from task_recorder_cui.utils.time import now_utc
+
+    with open_db() as conn, conn:
+        insert_record(conn, category_key="dev", description="x", started_at=now_utc())
+
+    monkeypatch.setattr("task_recorder_cui.commands.timer.spawn_daemon", lambda r: None)
+    rc = main(["timer", "set", "30m"])
+    assert rc == 0
+
+
+def test_cli_timer_cancel_dispatches(isolated_db, monkeypatch: pytest.MonkeyPatch) -> None:
+    from datetime import timedelta
+
+    from task_recorder_cui.db import open_db
+    from task_recorder_cui.repo import insert_record, set_timer_target
+    from task_recorder_cui.utils.time import now_utc
+
+    with open_db() as conn, conn:
+        rec_id = insert_record(conn, category_key="dev", description="x", started_at=now_utc())
+        set_timer_target(conn, rec_id, target_at=now_utc() + timedelta(minutes=30))
+    rc = main(["timer", "cancel"])
+    assert rc == 0
+
+
+def test_cli_config_list(
+    isolated_db,
+    tmp_path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    monkeypatch.setenv("TSK_CONFIG_PATH", str(tmp_path / "cfg.toml"))
+    rc = main(["config", "list"])
+    assert rc == 0
+    assert "timer.enabled" in capsys.readouterr().out
+
+
+def test_cli_start_with_timer_flag(isolated_db, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("task_recorder_cui.commands.start.spawn_daemon", lambda r: None)
+    rc = main(["start", "dev", "desc", "--timer", "1h"])
+    assert rc == 0

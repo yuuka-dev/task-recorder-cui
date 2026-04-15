@@ -93,3 +93,96 @@ def test_recent_records_lines_respects_limit(isolated_db) -> None:
     with open_db() as conn:
         lines = _recent_records_lines(now, conn, limit=3)
     assert len(lines) == 3
+
+
+# --- Task 20: render_timer_bar ---
+
+
+def test_render_timer_bar_with_active_timer() -> None:
+    """活性タイマー (未発火) の場合、'<経過>m / <目標>m (<%>%)' を返す。"""
+    from task_recorder_cui.menu import render_timer_bar
+
+    now = datetime(2026, 4, 14, 14, 30, tzinfo=UTC)
+    started = datetime(2026, 4, 14, 13, 0, tzinfo=UTC)
+    target = datetime(2026, 4, 14, 15, 30, tzinfo=UTC)
+    text = render_timer_bar(
+        now=now,
+        started_at=started,
+        target_at=target,
+        fired_at=None,
+        bar_color="cyan",
+        bar_style="solid",
+        width=20,
+    )
+    assert "1h30m" in text
+    assert "2h30m" in text
+    assert "60%" in text
+    assert "[" in text and "]" in text
+    assert "[[" not in text
+
+
+def test_render_timer_bar_fired_shows_expired() -> None:
+
+    from task_recorder_cui.menu import render_timer_bar
+
+    now = datetime(2026, 4, 14, 16, 0, tzinfo=UTC)
+    started = datetime(2026, 4, 14, 13, 0, tzinfo=UTC)
+    target = datetime(2026, 4, 14, 15, 30, tzinfo=UTC)
+    fired = datetime(2026, 4, 14, 15, 30, tzinfo=UTC)
+    text = render_timer_bar(
+        now=now,
+        started_at=started,
+        target_at=target,
+        fired_at=fired,
+        bar_color="cyan",
+        bar_style="solid",
+        width=20,
+    )
+    assert "経過" in text or "expired" in text.lower() or "100%" in text
+
+
+def test_render_timer_bar_no_timer_returns_empty() -> None:
+    """タイマー未設定なら空文字 (呼び出し側が行を出さない)。"""
+    from task_recorder_cui.menu import render_timer_bar
+
+    now = datetime(2026, 4, 14, 14, tzinfo=UTC)
+    started = datetime(2026, 4, 14, 13, tzinfo=UTC)
+    text = render_timer_bar(
+        now=now,
+        started_at=started,
+        target_at=None,
+        fired_at=None,
+        bar_color="cyan",
+        bar_style="solid",
+        width=20,
+    )
+    assert text == ""
+
+
+# --- Task 23: should_flash ---
+
+
+def test_should_flash_when_fired_recently() -> None:
+    """fired_at が 5 秒以内なら点滅対象。"""
+    from task_recorder_cui.menu import should_flash
+
+    now = datetime(2026, 4, 14, 14, 30, tzinfo=UTC)
+    fired = datetime(2026, 4, 14, 14, 29, 57, tzinfo=UTC)
+    assert should_flash(now=now, fired_at=fired, window_seconds=5) is True
+
+
+def test_should_flash_false_after_window() -> None:
+
+    from task_recorder_cui.menu import should_flash
+
+    now = datetime(2026, 4, 14, 14, 30, tzinfo=UTC)
+    fired = datetime(2026, 4, 14, 14, 29, 50, tzinfo=UTC)
+    assert should_flash(now=now, fired_at=fired, window_seconds=5) is False
+
+
+def test_should_flash_false_when_none() -> None:
+
+    from task_recorder_cui.menu import should_flash
+
+    now = datetime(2026, 4, 14, 14, 30, tzinfo=UTC)
+    assert should_flash(now=now, fired_at=None, window_seconds=5) is False

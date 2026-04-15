@@ -28,4 +28,12 @@ def run() -> int:
     detail = f" {escape(active.description)}" if active.description else ""
     print_line(f"現在: [{escape(display)}]{detail} ({format_duration(elapsed_min)}経過)")
     print_line(f"開始: {started_hm}")
+    if active.timer_fired_at is not None:
+        print_line("  タイマー: 経過済")
+    elif active.timer_target_at is not None:
+        remaining = max(
+            0,
+            int((active.timer_target_at - now_utc()).total_seconds() // 60),
+        )
+        print_line(f"  タイマー: 残り {format_duration(remaining)}")
     return 0
