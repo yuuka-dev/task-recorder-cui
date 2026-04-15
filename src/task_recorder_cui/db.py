@@ -81,7 +81,8 @@ def initialize(conn: sqlite3.Connection) -> None:
     """スキーマを適用し、初回なら初期カテゴリを投入する。
 
     複数回呼んでも安全 (冪等)。初期データ投入はトランザクション内で行い、
-    失敗時は自動ロールバックされる。
+    失敗時は自動ロールバックされる。最後に `migrate()` を呼んでスキーマ
+    バージョンを最新に揃える。
 
     Args:
         conn: 対象のSQLite接続。
@@ -98,6 +99,25 @@ def initialize(conn: sqlite3.Connection) -> None:
                 "INSERT INTO categories (key, display_name, created_at) VALUES (?, ?, ?)",
                 [(key, name, now_iso) for key, name in INITIAL_CATEGORIES],
             )
+    migrate(conn)
+
+
+def migrate(conn: sqlite3.Connection) -> None:
+    """スキーマバージョンに応じた段階的マイグレーションを実行する。
+
+    `PRAGMA user_version` を真実とし、バージョンが古ければ ALTER を走らせる。
+    冪等 (同じ DB に複数回呼んでも問題なし)。
+
+    Args:
+        conn: 対象の SQLite 接続。
+
+    """
+    version = conn.execute("PRAGMA user_version").fetchone()[0]
+    if version < 1:
+        with conn:
+            conn.execute("ALTER TABLE records ADD COLUMN timer_target_at TEXT")
+            conn.execute("ALTER TABLE records ADD COLUMN timer_fired_at TEXT")
+            conn.execute("PRAGMA user_version = 1")
 
 
 @contextmanager
