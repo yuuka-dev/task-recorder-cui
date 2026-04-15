@@ -224,11 +224,27 @@ _HELP_TEXT = """tsk コマンド一覧
 
 
 def _render_header(now: datetime, conn: sqlite3.Connection) -> None:
-    """ヘッダ (タイトル + 現在のセッション + 直近) を描画する。"""
+    """ヘッダ (タイトル + 現在のセッション + タイマーバー + 直近) を描画する。"""
+    from task_recorder_cui.config import load_config
+
     print_line()
     print_line("tsk - task recorder")
     print_line()
     print_line(_active_session_line(now, conn))
+    active = find_active_record(conn)
+    if active is not None and active.timer_target_at is not None:
+        cfg = load_config()
+        bar = render_timer_bar(
+            now=now,
+            started_at=active.started_at,
+            target_at=active.timer_target_at,
+            fired_at=active.timer_fired_at,
+            bar_color=cfg.ui.bar_color,
+            bar_style=cfg.ui.bar_style,
+            width=30,
+        )
+        if bar:
+            print_line(bar)
     recent = _recent_records_lines(now, conn)
     if recent:
         print_line()
