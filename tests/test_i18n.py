@@ -85,6 +85,11 @@ def test_current_lang_lc_all_beats_lang(monkeypatch: pytest.MonkeyPatch) -> None
     assert i18n.current_lang() == "ja"
 
 
+def test_set_lang_rejects_unknown() -> None:
+    with pytest.raises(ValueError, match="unsupported lang"):
+        i18n.set_lang("fr")
+
+
 def test_current_lang_default_ja(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("LANG", raising=False)
     monkeypatch.delenv("LC_ALL", raising=False)
