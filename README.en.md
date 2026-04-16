@@ -191,6 +191,40 @@ Use arrow keys + Enter to choose. Ctrl+C / ESC exits safely at any time (any in-
 
 The config file lives at `~/.config/tsk/config.toml` (override with `TSK_CONFIG_PATH`). Windows-style paths (e.g. `C:\Windows\Media\Alarm01.wav`) are auto-converted to `/mnt/c/...`.
 
+```toml
+[timer]
+enabled = true                                   # false to disable timer
+sound_path = "/mnt/c/Windows/Media/Alarm01.wav"  # WAV file on timer fire
+notify_when_closed = true                        # MessageBox when menu is closed
+
+[ui]
+lang = ""             # "" = auto-detect from env / "ja" / "en"
+bar_color = "cyan"    # bar foreground (rich color name)
+bar_bg_color = "white" # bar background ("" for none)
+bar_bg_style = "full" # full / filled / unfilled / none
+bar_style = "solid"   # solid / rainbow / gradient
+```
+
+#### Color formats
+
+`bar_color` / `bar_bg_color` accept:
+
+| Format | Example | Description |
+|--------|---------|-------------|
+| Basic | `red`, `cyan`, `green` | Standard 8 colors |
+| Bright | `bright_red`, `bright_cyan` | High-intensity (more vivid) |
+| 256-color | `color(208)` | Extended palette |
+| RGB | `#ff6600` | 24-bit color |
+
+#### Bar background style (`bar_bg_style`)
+
+| Value | Description |
+|-------|-------------|
+| `full` | Background on the entire bar |
+| `filled` | Background on the filled portion only |
+| `unfilled` | Background on the empty portion only |
+| `none` | No background |
+
 ## Out of scope (what this tool does not do)
 
 Task management, cloud sync, notifications, graph rendering, pomodoro timing, tags, and priority fields are intentionally excluded. The tool only records time.

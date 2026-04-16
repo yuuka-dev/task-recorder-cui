@@ -6,6 +6,7 @@ monkeypatch で差し替え、`.ask()` が返す値を制御して分岐を網�
 
 from __future__ import annotations
 
+from contextlib import contextmanager
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
@@ -14,7 +15,7 @@ import pytest
 
 from task_recorder_cui import menu
 from task_recorder_cui.db import open_db
-from task_recorder_cui.repo import insert_record, set_timer_target
+from task_recorder_cui.repo import insert_record
 from task_recorder_cui.utils.time import now_utc
 
 
@@ -23,6 +24,7 @@ class _FakePrompt:
 
     def __init__(self, value: Any) -> None:
         self._value = value
+        self.application = None
 
     def ask(self) -> Any:
         return self._value
@@ -81,6 +83,43 @@ def test_gradient_text_unknown_color_falls_back() -> None:
     assert "[white]" in text
 
 
+# === _apply_fg / _apply_bg ===
+
+
+def test_apply_bg_none_style_no_background() -> None:
+    result = menu._apply_bg("[cyan]=>>[/cyan]", "  ", "white", "none")
+    assert "on white" not in result
+    assert "=>>" in result
+
+
+def test_apply_bg_filled_style_bg_on_filled_only() -> None:
+    result = menu._apply_bg("[cyan]=>>[/cyan]", "  ", "white", "filled")
+    assert "[on white]" in result
+    assert result.startswith("[on white]")
+    filled_end = result.index("[/on white]")
+    assert result[filled_end + len("[/on white]") :] == "  "
+
+
+def test_apply_bg_filled_style_empty_filled() -> None:
+    result = menu._apply_bg("", "  ", "white", "filled")
+    assert "on white" not in result
+
+
+def test_apply_bg_unfilled_style_bg_on_unfilled_only() -> None:
+    result = menu._apply_bg("[cyan]=>>[/cyan]", "   ", "white", "unfilled")
+    assert "[on white]   [/on white]" in result
+
+
+def test_apply_bg_unfilled_style_empty_unfilled() -> None:
+    result = menu._apply_bg("[cyan]==[/cyan]", "", "white", "unfilled")
+    assert "on white" not in result
+
+
+def test_apply_bg_empty_color_no_background() -> None:
+    result = menu._apply_bg("[cyan]=>>[/cyan]", "  ", "", "full")
+    assert "on " not in result
+
+
 # === render_timer_bar の style / flash 分岐 ===
 
 
@@ -98,6 +137,7 @@ def test_render_timer_bar_solid_style_uses_solid_color() -> None:
         width=10,
     )
     assert "[cyan]" in text
+    assert "[on white]" in text
 
 
 def test_render_timer_bar_gradient_style() -> None:
@@ -202,29 +242,59 @@ def test_render_timer_bar_no_fill_when_elapsed_zero() -> None:
     assert "0%" in text
 
 
+# === _rich_to_ansi / _attach_tick_window ===
+
+
+def test_rich_to_ansi_converts_markup() -> None:
+    """rich markup が ANSI エスケープ付き文字列に変換される。"""
+    text = menu._rich_to_ansi("[bold]hello[/bold]")
+    assert "hello" in text
+
+
+def test_attach_tick_window_sets_refresh_and_prepends_window() -> None:
+    """Application に refresh_interval と先頭 Window が追加される。"""
+    import questionary
+    from prompt_toolkit.layout.containers import HSplit
+    from prompt_toolkit.layout.controls import FormattedTextControl
+
+    q = questionary.select("x", choices=["a", "b"])
+    original_container = q.application.layout.container
+
+    menu._attach_tick_window(q.application, tick_source=lambda: ["test line"])
+
+    assert q.application.refresh_interval == 1.0
+    container = q.application.layout.container
+    assert isinstance(container, HSplit)
+    # 新しい HSplit は [tick_window, original_container] の 2 children
+    assert len(container.children) == 2
+    assert container.children[1] is original_container
+    # get_text の正常パスも通す
+    tick_control = container.children[0].content
+    assert isinstance(tick_control, FormattedTextControl)
+    result = tick_control.text()
+    assert result is not None
+
+
+def test_attach_tick_window_exception_in_source_returns_empty() -> None:
+    """tick_source が例外を投げても get_text は空を返す (メニューは落ちない)。"""
+    import questionary
+    from prompt_toolkit.layout.controls import FormattedTextControl
+
+    def _exploding() -> list[str]:
+        raise RuntimeError("boom")
+
+    q = questionary.select("x", choices=["a", "b"])
+    menu._attach_tick_window(q.application, tick_source=_exploding)
+
+    container = q.application.layout.container
+    tick_control = container.children[0].content
+    assert isinstance(tick_control, FormattedTextControl)
+    result = tick_control.text()
+    # 例外時は空 ANSI が返る (crash しない)
+    assert result is not None
+
+
 # === _render_header ===
-
-
-def test_render_header_without_active_prints_active_none(
-    isolated_db: Path, capsys: pytest.CaptureFixture[str]
-) -> None:
-    with open_db() as conn:
-        menu._render_header(now_utc(), conn)
-    out = capsys.readouterr().out
-    assert "記録なし" in out or "No active session" in out
-
-
-def test_render_header_with_timer_prints_bar(
-    isolated_db: Path, capsys: pytest.CaptureFixture[str]
-) -> None:
-    started = now_utc()
-    with open_db() as conn, conn:
-        rec_id = insert_record(conn, category_key="dev", description="x", started_at=started)
-        set_timer_target(conn, rec_id, target_at=started + timedelta(minutes=30))
-    with open_db() as conn:
-        menu._render_header(started, conn)
-    out = capsys.readouterr().out
-    assert "%" in out  # タイマーバーが必ず "X%" を含む
 
 
 def test_render_header_with_recent_records_prints_recent(
@@ -297,6 +367,36 @@ def test_show_main_menu_not_recording_disables_stop(monkeypatch: pytest.MonkeyPa
     assert result is None
     stop_choice = next(c for c in captured["choices"] if c.value == "stop")
     assert stop_choice.disabled  # truthy な文字列
+
+
+def test_show_main_menu_with_tick_source_calls_attach(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """tick_source が渡されたら _attach_tick_window が呼ばれる。"""
+    attached: list[bool] = []
+
+    def _fake_attach(_app: Any, tick_source: Any) -> None:
+        attached.append(True)
+
+    monkeypatch.setattr(menu, "_attach_tick_window", _fake_attach)
+    _queue_prompts(monkeypatch, selects=["quit"])
+    menu._show_main_menu(recording=False, tick_source=lambda: ["test"])
+    assert attached == [True]
+
+
+def test_show_main_menu_without_tick_source_skips_attach(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """tick_source が None なら _attach_tick_window は呼ばれない。"""
+    attached: list[bool] = []
+
+    def _fake_attach(_app: Any, tick_source: Any) -> None:
+        attached.append(True)
+
+    monkeypatch.setattr(menu, "_attach_tick_window", _fake_attach)
+    _queue_prompts(monkeypatch, selects=["quit"])
+    menu._show_main_menu(recording=False)
+    assert attached == []
 
 
 # === _show_help ===
@@ -712,6 +812,49 @@ def test_run_loop_swallows_dispatch_keyboard_interrupt(
     assert rc == 0
     out = capsys.readouterr().out
     assert "中断" in out or "Interrupted" in out
+
+
+def test_run_loop_tick_uses_connect_not_open_db(
+    isolated_db: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    open_db_calls = 0
+    connect_calls = 0
+    closed: list[bool] = []
+
+    @contextmanager
+    def _fake_open_db():
+        nonlocal open_db_calls
+        open_db_calls += 1
+        yield object()
+
+    class _FakeConn:
+        def close(self) -> None:
+            closed.append(True)
+
+    def _fake_connect() -> _FakeConn:
+        nonlocal connect_calls
+        connect_calls += 1
+        return _FakeConn()
+
+    monkeypatch.setattr(menu, "open_db", _fake_open_db)
+    monkeypatch.setattr(menu, "connect", _fake_connect)
+    monkeypatch.setattr(menu, "_render_header", lambda *_args: None)
+    monkeypatch.setattr(menu, "find_active_record", lambda _conn: None)
+    monkeypatch.setattr(menu, "_build_tick_lines", lambda *_args, **_kwargs: ["tick"])
+
+    def _fake_show_main_menu(*, recording: bool, tick_source: Any = None) -> str:
+        assert recording is False
+        assert callable(tick_source)
+        tick_source()
+        return "quit"
+
+    monkeypatch.setattr(menu, "_show_main_menu", _fake_show_main_menu)
+
+    rc = menu._run_loop()
+    assert rc == 0
+    assert open_db_calls == 1
+    assert connect_calls == 1
+    assert closed == [True]
 
 
 def test_run_wraps_loop_with_menu_lock(isolated_db: Path, monkeypatch: pytest.MonkeyPatch) -> None:

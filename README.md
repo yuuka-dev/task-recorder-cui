@@ -207,6 +207,40 @@ tsk
 設定ファイルは `~/.config/tsk/config.toml` (`TSK_CONFIG_PATH` で上書き可)。Windows
 パス (`C:\Windows\Media\Alarm01.wav`) を設定すると自動的に `/mnt/c/...` に変換されます。
 
+```toml
+[timer]
+enabled = true                                   # false で機能無効化
+sound_path = "/mnt/c/Windows/Media/Alarm01.wav"  # 発火時の WAV
+notify_when_closed = true                        # メニュー閉時の MessageBox
+
+[ui]
+lang = ""             # "" = 未設定 (環境変数参照) / "ja" / "en"
+bar_color = "cyan"    # バー前景色 (rich カラー名)
+bar_bg_color = "white" # バー背景色 ("" で背景なし)
+bar_bg_style = "full" # full / filled / unfilled / none
+bar_style = "solid"   # solid / rainbow / gradient
+```
+
+#### カラー指定
+
+`bar_color` / `bar_bg_color` には以下の形式が使えます:
+
+| 形式 | 例 | 説明 |
+|------|-----|------|
+| 基本色 | `red`, `cyan`, `green` | 標準 8 色 |
+| bright 付き | `bright_red`, `bright_cyan` | 高輝度版 (より鮮やか) |
+| 256 色 | `color(208)` | 拡張 256 色パレット |
+| RGB | `#ff6600` | 24bit カラー |
+
+#### バー背景スタイル (`bar_bg_style`)
+
+| 値 | 説明 |
+|-----|------|
+| `full` | バー全体に背景色を適用 |
+| `filled` | 進んでいる部分だけ背景色 |
+| `unfilled` | 空白部分だけ背景色 |
+| `none` | 背景色なし |
+
 ## スコープ外（やらないこと）
 
 タスク管理、クラウド同期、ポモドーロ (固定サイクル繰り返し)、タグ、優先度機能は意図的に実装しません。時間を記録することだけに集中します。

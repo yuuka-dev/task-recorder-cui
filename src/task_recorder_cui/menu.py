@@ -6,10 +6,16 @@ pure 関数中心に当てる方針。
 """
 
 import contextlib
+import io
 import sqlite3
+from collections.abc import Callable, Iterator
 from datetime import datetime
 
 import questionary
+from prompt_toolkit.formatted_text import ANSI
+from prompt_toolkit.layout.containers import HSplit, Window
+from prompt_toolkit.layout.controls import FormattedTextControl
+from rich.console import Console
 from rich.markup import escape
 
 from task_recorder_cui.commands import cat as cat_cmd
@@ -18,7 +24,8 @@ from task_recorder_cui.commands import start as start_cmd
 from task_recorder_cui.commands import stop as stop_cmd
 from task_recorder_cui.commands import today as today_cmd
 from task_recorder_cui.commands import week as week_cmd
-from task_recorder_cui.db import open_db
+from task_recorder_cui.config import load_config
+from task_recorder_cui.db import connect, open_db
 from task_recorder_cui.i18n import t
 from task_recorder_cui.io import print_line
 from task_recorder_cui.repo import (
@@ -84,6 +91,40 @@ def should_flash(
     return 0 <= delta < window_seconds
 
 
+def _apply_fg(text: str, bar_style: str, bar_color: str, elapsed_seconds: int) -> str:
+    """バーテキストに前景スタイルを適用する。"""
+    if not text:
+        return ""
+    if bar_style == "solid":
+        return f"[{bar_color}]{text}[/{bar_color}]"
+    if bar_style == "gradient":
+        return _gradient_text(text, bar_color)
+    if bar_style == "rainbow":
+        return _rainbow_text(text, phase_seconds=elapsed_seconds)
+    return text
+
+
+def _apply_bg(
+    fg_filled: str,
+    fg_unfilled: str,
+    bar_bg_color: str,
+    bar_bg_style: str,
+) -> str:
+    """前景処理済のバー部品に背景色を適用する。"""
+    if not bar_bg_color or bar_bg_style == "none":
+        return f"{fg_filled}{fg_unfilled}"
+    bg = f"on {bar_bg_color}"
+    if bar_bg_style == "filled":
+        if fg_filled:
+            return f"[{bg}]{fg_filled}[/{bg}]{fg_unfilled}"
+        return fg_unfilled
+    if bar_bg_style == "unfilled":
+        if fg_unfilled:
+            return f"{fg_filled}[{bg}]{fg_unfilled}[/{bg}]"
+        return fg_filled
+    return f"[{bg}]{fg_filled}{fg_unfilled}[/{bg}]"
+
+
 def render_timer_bar(
     *,
     now: datetime,
@@ -92,6 +133,8 @@ def render_timer_bar(
     fired_at: datetime | None,
     bar_color: str,
     bar_style: str,
+    bar_bg_color: str = "white",
+    bar_bg_style: str = "full",
     width: int = 30,
 ) -> str:
     """タイマー状態を rich 用のマークアップ付き文字列に整形する (pure)。
@@ -103,6 +146,8 @@ def render_timer_bar(
         fired_at: 発火済なら時刻、未発火なら None。
         bar_color: 'cyan' 等の rich カラー名。
         bar_style: 'solid' / 'rainbow' / 'gradient'。
+        bar_bg_color: バー背景色。空文字で背景なし。
+        bar_bg_style: 背景の塗り方。'full' / 'filled' / 'unfilled' / 'none'。
         width: バーの幅 (文字数)。
 
     Returns:
@@ -115,27 +160,22 @@ def render_timer_bar(
     total_seconds = max(1, int((target_at - started_at).total_seconds()))
     elapsed_seconds = max(0, int((now - started_at).total_seconds()))
     ratio = min(1.0, elapsed_seconds / total_seconds)
-    filled = int(width * ratio)
-    if filled >= width:
-        bar_core = "=" * width
-    elif filled > 0:
-        bar_core = "=" * (filled - 1) + ">"
+    filled_len = int(width * ratio)
+    if filled_len >= width:
+        filled_str = "=" * width
+    elif filled_len > 0:
+        filled_str = "=" * (filled_len - 1) + ">"
     else:
-        bar_core = ""
-    bar_body = (bar_core + " " * (width - len(bar_core)))[:width]
+        filled_str = ""
+    unfilled_str = " " * (width - len(filled_str))
 
-    if bar_style == "solid":
-        colored = f"[{bar_color}]{bar_body}[/{bar_color}]"
-    elif bar_style == "gradient":
-        colored = _gradient_text(bar_body, bar_color)
-    elif bar_style == "rainbow":
-        colored = _rainbow_text(bar_body, phase_seconds=elapsed_seconds)
-    else:
-        colored = bar_body
+    fg_filled = _apply_fg(filled_str, bar_style, bar_color, elapsed_seconds)
+    fg_unfilled = _apply_fg(unfilled_str, bar_style, bar_color, elapsed_seconds)
+    colored = _apply_bg(fg_filled, fg_unfilled, bar_bg_color, bar_bg_style)
 
     elapsed_m = elapsed_seconds // 60
     target_m = total_seconds // 60
-    pct = int(ratio * 100)
+    pct = f"{ratio * 100:.2f}"
     suffix = ""
     if should_flash(now=now, fired_at=fired_at, window_seconds=5):
         suffix = " [bold red blink]タイマー経過[/bold red blink]"
@@ -172,6 +212,86 @@ def _active_session_line(now: datetime, conn: sqlite3.Connection) -> str:
         description=escape(desc),
         elapsed=elapsed,
     )
+
+
+def _build_tick_lines(
+    now: datetime,
+    conn: sqlite3.Connection,
+    *,
+    bar_color: str,
+    bar_style: str,
+    bar_bg_color: str = "white",
+    bar_bg_style: str = "full",
+) -> list[str]:
+    """tick_window 用の表示行を組み立てる (pure)。
+
+    Args:
+        now: 経過時間計算の基準時刻 (tz付き)。
+        conn: 読み取りに使う DB 接続。
+        bar_color: 'cyan' 等の rich カラー名。
+        bar_style: 'solid' / 'rainbow' / 'gradient'。
+        bar_bg_color: バー背景色。空文字で背景なし。
+        bar_bg_style: 背景の塗り方。'full' / 'filled' / 'unfilled' / 'none'。
+
+    Returns:
+        1〜2 要素のリスト。[0] は active session 行，[1] は timer bar (あれば)。
+
+    """
+    lines: list[str] = [_active_session_line(now, conn)]
+    active = find_active_record(conn)
+    if active is not None and active.timer_target_at is not None:
+        bar = render_timer_bar(
+            now=now,
+            started_at=active.started_at,
+            target_at=active.timer_target_at,
+            fired_at=active.timer_fired_at,
+            bar_color=bar_color,
+            bar_style=bar_style,
+            bar_bg_color=bar_bg_color,
+            bar_bg_style=bar_bg_style,
+            width=30,
+        )
+        if bar:  # pragma: no cover  # target_at != None なので空文字にはならない (防御コード)
+            lines.append(bar)
+    return lines
+
+
+def _rich_to_ansi(markup: str) -> str:
+    """rich markup を ANSI エスケープシーケンス付き文字列に変換する。"""
+    buf = io.StringIO()
+    Console(file=buf, force_terminal=True, highlight=False, width=120).print(markup, end="")
+    return buf.getvalue()
+
+
+def _attach_tick_window(
+    application: object,
+    tick_source: Callable[[], list[str]],
+) -> None:
+    """prompt_toolkit Application にリアルタイム tick 描画用 Window を差し込む。
+
+    Args:
+        application: questionary が内部で保持する prompt_toolkit.Application。
+        tick_source: 毎秒呼ばれ，表示行 (rich markup) のリストを返す callable。
+
+    """
+
+    def get_text() -> ANSI:
+        try:
+            lines = tick_source()
+            return ANSI(_rich_to_ansi("\n".join(lines)))
+        except Exception:
+            return ANSI("")
+
+    if application is None:  # pragma: no cover
+        return
+
+    tick_window = Window(
+        content=FormattedTextControl(get_text),
+        dont_extend_height=True,
+    )
+    original = application.layout.container  # type: ignore[attr-defined]
+    application.layout.container = HSplit([tick_window, original])  # type: ignore[attr-defined]
+    application.refresh_interval = 1.0  # type: ignore[attr-defined]
 
 
 def _recent_records_lines(now: datetime, conn: sqlite3.Connection, limit: int = 5) -> list[str]:
@@ -232,29 +352,13 @@ _HELP_TEXT = """tsk コマンド一覧
 
 
 def _render_header(now: datetime, conn: sqlite3.Connection) -> None:
-    """ヘッダ (タイトル + 現在のセッション + タイマーバー + 直近) を描画する。"""
-    from task_recorder_cui.config import load_config
+    """ヘッダ (タイトル + 直近) を描画する。
 
+    「現在」行とタイマーバーは tick_window で動的に描画するため，
+    ヘッダには含めない。
+    """
     print_line()
     print_line(t("MENU_TITLE"))
-    print_line()
-    print_line(_active_session_line(now, conn))
-    active = find_active_record(conn)
-    if active is not None and active.timer_target_at is not None:
-        cfg = load_config()
-        bar = render_timer_bar(
-            now=now,
-            started_at=active.started_at,
-            target_at=active.timer_target_at,
-            fired_at=active.timer_fired_at,
-            bar_color=cfg.ui.bar_color,
-            bar_style=cfg.ui.bar_style,
-            width=30,
-        )
-        if (
-            bar
-        ):  # pragma: no branch  # target_at 存在時は render_timer_bar が空を返すケースは現状無い
-            print_line(bar)
     recent = _recent_records_lines(now, conn)
     if recent:
         print_line()
@@ -270,10 +374,14 @@ def _pause() -> None:
         input(t("MENU_PROMPT_PRESS_ENTER"))
 
 
-def _show_main_menu(*, recording: bool) -> str | None:
+def _show_main_menu(
+    *,
+    recording: bool,
+    tick_source: Callable[[], list[str]] | None = None,
+) -> str | None:
     """メインメニューを表示し選択値 (value 文字列) を返す。Ctrl+C / ESC で None。"""
     stop_disabled: str | bool = False if recording else t("MENU_CHOICE_STOP_DISABLED")
-    return questionary.select(
+    q = questionary.select(
         t("MENU_PROMPT_ACTION"),
         choices=[
             questionary.Choice(t("MENU_CHOICE_START"), value="start"),
@@ -285,7 +393,10 @@ def _show_main_menu(*, recording: bool) -> str | None:
             questionary.Choice(t("MENU_CHOICE_HELP"), value="help"),
             questionary.Choice(t("MENU_CHOICE_QUIT"), value="quit"),
         ],
-    ).ask()
+    )
+    if tick_source is not None:
+        _attach_tick_window(q.application, tick_source)
+    return q.ask()
 
 
 def _show_help() -> None:
@@ -512,7 +623,21 @@ def _run_loop() -> int:
         with open_db() as conn:
             _render_header(now, conn)
             recording = find_active_record(conn) is not None
-        choice = _show_main_menu(recording=recording)
+
+        cfg = load_config()
+
+        def _tick(_cfg=cfg) -> list[str]:  # pragma: no cover
+            with _open_tick_db() as conn:
+                return _build_tick_lines(
+                    now_utc(),
+                    conn,
+                    bar_color=_cfg.ui.bar_color,
+                    bar_style=_cfg.ui.bar_style,
+                    bar_bg_color=_cfg.ui.bar_bg_color,
+                    bar_bg_style=_cfg.ui.bar_bg_style,
+                )
+
+        choice = _show_main_menu(recording=recording, tick_source=_tick)
         if choice is None or choice == "quit":
             return 0
         try:
@@ -524,3 +649,13 @@ def _run_loop() -> int:
         # 戻った直後に再度 Enter 要求するのは UX 的に冗長。
         if choice != "cat":
             _pause()
+
+
+@contextlib.contextmanager
+def _open_tick_db() -> Iterator[sqlite3.Connection]:
+    """tick 描画専用の軽量 DB 接続を開く。"""
+    conn = connect()
+    try:
+        yield conn
+    finally:
+        conn.close()
