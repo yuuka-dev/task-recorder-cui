@@ -14,7 +14,7 @@ import pytest
 
 from task_recorder_cui import menu
 from task_recorder_cui.db import open_db
-from task_recorder_cui.repo import insert_record, set_timer_target
+from task_recorder_cui.repo import insert_record
 from task_recorder_cui.utils.time import now_utc
 
 

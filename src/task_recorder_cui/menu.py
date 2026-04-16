@@ -220,9 +220,7 @@ def _build_tick_lines(
 def _rich_to_ansi(markup: str) -> str:
     """rich markup を ANSI エスケープシーケンス付き文字列に変換する。"""
     buf = io.StringIO()
-    Console(file=buf, force_terminal=True, highlight=False, width=120).print(
-        markup, end=""
-    )
+    Console(file=buf, force_terminal=True, highlight=False, width=120).print(markup, end="")
     return buf.getvalue()
 
 
@@ -589,13 +587,13 @@ def _run_loop() -> int:
 
         cfg = load_config()
 
-        def _tick() -> list[str]:  # pragma: no cover
+        def _tick(_cfg=cfg) -> list[str]:  # pragma: no cover
             with open_db() as conn:
                 return _build_tick_lines(
                     now_utc(),
                     conn,
-                    bar_color=cfg.ui.bar_color,
-                    bar_style=cfg.ui.bar_style,
+                    bar_color=_cfg.ui.bar_color,
+                    bar_style=_cfg.ui.bar_style,
                 )
 
         choice = _show_main_menu(recording=recording, tick_source=_tick)
