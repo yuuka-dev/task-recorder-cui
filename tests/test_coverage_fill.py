@@ -135,17 +135,37 @@ def test_timer_cancel_no_active_session(isolated_db, capsys: pytest.CaptureFixtu
 
 
 def test_today_active_session_appends_to_records(
-    isolated_db, capsys: pytest.CaptureFixture[str]
+    isolated_db,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """active セッションが records に append される分岐 (line 44)。"""
+    """today.py の active append 分岐と active_partial による合計表示分岐を網羅する．
+
+    active セッションが records に append される分岐 (line 44) と
+    ``active_partial_minutes > 0`` のときの「記録中含む」合計 (line 76) を同時カバー．
+    CI runner の時刻 (特に UTC 日付境界 00:00〜00:30 付近) に依存すると flake する
+    ため ``now_utc`` / ``today_local`` を固定時刻 (2026-04-16 12:00 UTC) に差し替える．
+    """
+    from datetime import UTC, datetime
+
+    from task_recorder_cui.commands import _summary as summary_mod
     from task_recorder_cui.commands import today as today_cmd
+
+    fixed_now = datetime(2026, 4, 16, 12, 0, tzinfo=UTC)
+    fixed_today = fixed_now.astimezone().date()
+    fixed_started = fixed_now - timedelta(minutes=30)
+
+    monkeypatch.setattr(today_cmd, "now_utc", lambda: fixed_now)
+    monkeypatch.setattr(today_cmd, "today_local", lambda: fixed_today)
+    monkeypatch.setattr(summary_mod, "now_utc", lambda: fixed_now)
+    monkeypatch.setattr(summary_mod, "today_local", lambda: fixed_today)
 
     with open_db() as conn, conn:
         insert_record(
             conn,
             category_key="dev",
             description="running",
-            started_at=now_utc() - timedelta(minutes=20),
+            started_at=fixed_started,
         )
     rc = today_cmd.run()
     assert rc == 0
