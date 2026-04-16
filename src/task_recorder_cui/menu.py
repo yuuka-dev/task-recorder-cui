@@ -18,6 +18,7 @@ from task_recorder_cui.commands import start as start_cmd
 from task_recorder_cui.commands import stop as stop_cmd
 from task_recorder_cui.commands import today as today_cmd
 from task_recorder_cui.commands import week as week_cmd
+from task_recorder_cui.config import load_config
 from task_recorder_cui.db import open_db
 from task_recorder_cui.i18n import t
 from task_recorder_cui.io import print_line
@@ -268,29 +269,13 @@ _HELP_TEXT = """tsk コマンド一覧
 
 
 def _render_header(now: datetime, conn: sqlite3.Connection) -> None:
-    """ヘッダ (タイトル + 現在のセッション + タイマーバー + 直近) を描画する。"""
-    from task_recorder_cui.config import load_config
+    """ヘッダ (タイトル + 直近) を描画する。
 
+    「現在」行とタイマーバーは tick_window で動的に描画するため，
+    ヘッダには含めない。
+    """
     print_line()
     print_line(t("MENU_TITLE"))
-    print_line()
-    print_line(_active_session_line(now, conn))
-    active = find_active_record(conn)
-    if active is not None and active.timer_target_at is not None:
-        cfg = load_config()
-        bar = render_timer_bar(
-            now=now,
-            started_at=active.started_at,
-            target_at=active.timer_target_at,
-            fired_at=active.timer_fired_at,
-            bar_color=cfg.ui.bar_color,
-            bar_style=cfg.ui.bar_style,
-            width=30,
-        )
-        if (
-            bar
-        ):  # pragma: no branch  # target_at 存在時は render_timer_bar が空を返すケースは現状無い
-            print_line(bar)
     recent = _recent_records_lines(now, conn)
     if recent:
         print_line()

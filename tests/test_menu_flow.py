@@ -205,28 +205,6 @@ def test_render_timer_bar_no_fill_when_elapsed_zero() -> None:
 # === _render_header ===
 
 
-def test_render_header_without_active_prints_active_none(
-    isolated_db: Path, capsys: pytest.CaptureFixture[str]
-) -> None:
-    with open_db() as conn:
-        menu._render_header(now_utc(), conn)
-    out = capsys.readouterr().out
-    assert "記録なし" in out or "No active session" in out
-
-
-def test_render_header_with_timer_prints_bar(
-    isolated_db: Path, capsys: pytest.CaptureFixture[str]
-) -> None:
-    started = now_utc()
-    with open_db() as conn, conn:
-        rec_id = insert_record(conn, category_key="dev", description="x", started_at=started)
-        set_timer_target(conn, rec_id, target_at=started + timedelta(minutes=30))
-    with open_db() as conn:
-        menu._render_header(started, conn)
-    out = capsys.readouterr().out
-    assert "%" in out  # タイマーバーが必ず "X%" を含む
-
-
 def test_render_header_with_recent_records_prints_recent(
     isolated_db: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
