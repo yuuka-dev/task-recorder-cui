@@ -147,8 +147,10 @@ def test_iter_all_keys() -> None:
     assert "timer.notify_when_closed" in keys
     assert "ui.lang" in keys
     assert "ui.bar_color" in keys
+    assert "ui.bar_bg_color" in keys
+    assert "ui.bar_bg_style" in keys
     assert "ui.bar_style" in keys
-    assert len(keys) == 6
+    assert len(keys) == 8
 
 
 # --- 追加: 未カバー分岐 ---

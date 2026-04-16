@@ -91,6 +91,40 @@ def should_flash(
     return 0 <= delta < window_seconds
 
 
+def _apply_fg(text: str, bar_style: str, bar_color: str, elapsed_seconds: int) -> str:
+    """バーテキストに前景スタイルを適用する。"""
+    if not text:
+        return ""
+    if bar_style == "solid":
+        return f"[{bar_color}]{text}[/{bar_color}]"
+    if bar_style == "gradient":
+        return _gradient_text(text, bar_color)
+    if bar_style == "rainbow":
+        return _rainbow_text(text, phase_seconds=elapsed_seconds)
+    return text
+
+
+def _apply_bg(
+    fg_filled: str,
+    fg_unfilled: str,
+    bar_bg_color: str,
+    bar_bg_style: str,
+) -> str:
+    """前景処理済のバー部品に背景色を適用する。"""
+    if not bar_bg_color or bar_bg_style == "none":
+        return f"{fg_filled}{fg_unfilled}"
+    bg = f"on {bar_bg_color}"
+    if bar_bg_style == "filled":
+        if fg_filled:
+            return f"[{bg}]{fg_filled}[/{bg}]{fg_unfilled}"
+        return fg_unfilled
+    if bar_bg_style == "unfilled":
+        if fg_unfilled:
+            return f"{fg_filled}[{bg}]{fg_unfilled}[/{bg}]"
+        return fg_filled
+    return f"[{bg}]{fg_filled}{fg_unfilled}[/{bg}]"
+
+
 def render_timer_bar(
     *,
     now: datetime,
@@ -99,6 +133,8 @@ def render_timer_bar(
     fired_at: datetime | None,
     bar_color: str,
     bar_style: str,
+    bar_bg_color: str = "white",
+    bar_bg_style: str = "full",
     width: int = 30,
 ) -> str:
     """タイマー状態を rich 用のマークアップ付き文字列に整形する (pure)。
@@ -110,6 +146,8 @@ def render_timer_bar(
         fired_at: 発火済なら時刻、未発火なら None。
         bar_color: 'cyan' 等の rich カラー名。
         bar_style: 'solid' / 'rainbow' / 'gradient'。
+        bar_bg_color: バー背景色。空文字で背景なし。
+        bar_bg_style: 背景の塗り方。'full' / 'filled' / 'unfilled' / 'none'。
         width: バーの幅 (文字数)。
 
     Returns:
@@ -122,23 +160,18 @@ def render_timer_bar(
     total_seconds = max(1, int((target_at - started_at).total_seconds()))
     elapsed_seconds = max(0, int((now - started_at).total_seconds()))
     ratio = min(1.0, elapsed_seconds / total_seconds)
-    filled = int(width * ratio)
-    if filled >= width:
-        bar_core = "=" * width
-    elif filled > 0:
-        bar_core = "=" * (filled - 1) + ">"
+    filled_len = int(width * ratio)
+    if filled_len >= width:
+        filled_str = "=" * width
+    elif filled_len > 0:
+        filled_str = "=" * (filled_len - 1) + ">"
     else:
-        bar_core = ""
-    bar_body = (bar_core + " " * (width - len(bar_core)))[:width]
+        filled_str = ""
+    unfilled_str = " " * (width - len(filled_str))
 
-    if bar_style == "solid":
-        colored = f"[{bar_color} on white]{bar_body}[/{bar_color} on white]"
-    elif bar_style == "gradient":
-        colored = f"[on white]{_gradient_text(bar_body, bar_color)}[/on white]"
-    elif bar_style == "rainbow":
-        colored = f"[on white]{_rainbow_text(bar_body, phase_seconds=elapsed_seconds)}[/on white]"
-    else:
-        colored = f"[on white]{bar_body}[/on white]"
+    fg_filled = _apply_fg(filled_str, bar_style, bar_color, elapsed_seconds)
+    fg_unfilled = _apply_fg(unfilled_str, bar_style, bar_color, elapsed_seconds)
+    colored = _apply_bg(fg_filled, fg_unfilled, bar_bg_color, bar_bg_style)
 
     elapsed_m = elapsed_seconds // 60
     target_m = total_seconds // 60
@@ -187,6 +220,8 @@ def _build_tick_lines(
     *,
     bar_color: str,
     bar_style: str,
+    bar_bg_color: str = "white",
+    bar_bg_style: str = "full",
 ) -> list[str]:
     """tick_window 用の表示行を組み立てる (pure)。
 
@@ -195,6 +230,8 @@ def _build_tick_lines(
         conn: 読み取りに使う DB 接続。
         bar_color: 'cyan' 等の rich カラー名。
         bar_style: 'solid' / 'rainbow' / 'gradient'。
+        bar_bg_color: バー背景色。空文字で背景なし。
+        bar_bg_style: 背景の塗り方。'full' / 'filled' / 'unfilled' / 'none'。
 
     Returns:
         1〜2 要素のリスト。[0] は active session 行，[1] は timer bar (あれば)。
@@ -210,6 +247,8 @@ def _build_tick_lines(
             fired_at=active.timer_fired_at,
             bar_color=bar_color,
             bar_style=bar_style,
+            bar_bg_color=bar_bg_color,
+            bar_bg_style=bar_bg_style,
             width=30,
         )
         if bar:  # pragma: no cover  # target_at != None なので空文字にはならない (防御コード)
@@ -594,6 +633,8 @@ def _run_loop() -> int:
                     conn,
                     bar_color=_cfg.ui.bar_color,
                     bar_style=_cfg.ui.bar_style,
+                    bar_bg_color=_cfg.ui.bar_bg_color,
+                    bar_bg_style=_cfg.ui.bar_bg_style,
                 )
 
         choice = _show_main_menu(recording=recording, tick_source=_tick)

@@ -82,6 +82,43 @@ def test_gradient_text_unknown_color_falls_back() -> None:
     assert "[white]" in text
 
 
+# === _apply_fg / _apply_bg ===
+
+
+def test_apply_bg_none_style_no_background() -> None:
+    result = menu._apply_bg("[cyan]=>>[/cyan]", "  ", "white", "none")
+    assert "on white" not in result
+    assert "=>>" in result
+
+
+def test_apply_bg_filled_style_bg_on_filled_only() -> None:
+    result = menu._apply_bg("[cyan]=>>[/cyan]", "  ", "white", "filled")
+    assert "[on white]" in result
+    assert result.startswith("[on white]")
+    filled_end = result.index("[/on white]")
+    assert result[filled_end + len("[/on white]") :] == "  "
+
+
+def test_apply_bg_filled_style_empty_filled() -> None:
+    result = menu._apply_bg("", "  ", "white", "filled")
+    assert "on white" not in result
+
+
+def test_apply_bg_unfilled_style_bg_on_unfilled_only() -> None:
+    result = menu._apply_bg("[cyan]=>>[/cyan]", "   ", "white", "unfilled")
+    assert "[on white]   [/on white]" in result
+
+
+def test_apply_bg_unfilled_style_empty_unfilled() -> None:
+    result = menu._apply_bg("[cyan]==[/cyan]", "", "white", "unfilled")
+    assert "on white" not in result
+
+
+def test_apply_bg_empty_color_no_background() -> None:
+    result = menu._apply_bg("[cyan]=>>[/cyan]", "  ", "", "full")
+    assert "on " not in result
+
+
 # === render_timer_bar の style / flash 分岐 ===
 
 
@@ -98,7 +135,8 @@ def test_render_timer_bar_solid_style_uses_solid_color() -> None:
         bar_style="solid",
         width=10,
     )
-    assert "[cyan on white]" in text
+    assert "[cyan]" in text
+    assert "[on white]" in text
 
 
 def test_render_timer_bar_gradient_style() -> None:
