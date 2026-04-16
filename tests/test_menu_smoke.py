@@ -7,7 +7,7 @@ def test_menu_run_quit_returns_zero(isolated_db, monkeypatch) -> None:
     """quit を選んだら戻り値 0、DB は空のまま。"""
     monkeypatch.setattr(
         "task_recorder_cui.menu._show_main_menu",
-        lambda *, recording: "quit",
+        lambda *, recording, **_kw: "quit",
     )
 
     from task_recorder_cui.menu import run
@@ -24,7 +24,7 @@ def test_menu_run_returns_zero_on_none(isolated_db, monkeypatch) -> None:
     """ESC / Ctrl+C で None が返っても 0 終了。"""
     monkeypatch.setattr(
         "task_recorder_cui.menu._show_main_menu",
-        lambda *, recording: None,
+        lambda *, recording, **_kw: None,
     )
 
     from task_recorder_cui.menu import run
@@ -44,7 +44,7 @@ def test_menu_run_holds_lock(isolated_db, monkeypatch, tmp_path) -> None:
 
     observed: list[bool] = []
 
-    def fake_menu(*, recording):
+    def fake_menu(*, recording, **_kw):
         observed.append(is_menu_alive())
         return "quit"
 
