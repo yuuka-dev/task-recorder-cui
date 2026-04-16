@@ -245,6 +245,9 @@ def _attach_tick_window(
         except Exception:
             return ANSI("")
 
+    if application is None:  # pragma: no cover
+        return
+
     tick_window = Window(
         content=FormattedTextControl(get_text),
         dont_extend_height=True,
@@ -583,7 +586,19 @@ def _run_loop() -> int:
         with open_db() as conn:
             _render_header(now, conn)
             recording = find_active_record(conn) is not None
-        choice = _show_main_menu(recording=recording)
+
+        cfg = load_config()
+
+        def _tick() -> list[str]:  # pragma: no cover
+            with open_db() as conn:
+                return _build_tick_lines(
+                    now_utc(),
+                    conn,
+                    bar_color=cfg.ui.bar_color,
+                    bar_style=cfg.ui.bar_style,
+                )
+
+        choice = _show_main_menu(recording=recording, tick_source=_tick)
         if choice is None or choice == "quit":
             return 0
         try:
