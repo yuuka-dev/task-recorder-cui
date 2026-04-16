@@ -8,7 +8,7 @@ pure 関数中心に当てる方針。
 import contextlib
 import io
 import sqlite3
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from datetime import datetime
 
 import questionary
@@ -25,7 +25,7 @@ from task_recorder_cui.commands import stop as stop_cmd
 from task_recorder_cui.commands import today as today_cmd
 from task_recorder_cui.commands import week as week_cmd
 from task_recorder_cui.config import load_config
-from task_recorder_cui.db import open_db
+from task_recorder_cui.db import connect, open_db
 from task_recorder_cui.i18n import t
 from task_recorder_cui.io import print_line
 from task_recorder_cui.repo import (
@@ -627,7 +627,7 @@ def _run_loop() -> int:
         cfg = load_config()
 
         def _tick(_cfg=cfg) -> list[str]:  # pragma: no cover
-            with open_db() as conn:
+            with _open_tick_db() as conn:
                 return _build_tick_lines(
                     now_utc(),
                     conn,
@@ -649,3 +649,13 @@ def _run_loop() -> int:
         # 戻った直後に再度 Enter 要求するのは UX 的に冗長。
         if choice != "cat":
             _pause()
+
+
+@contextlib.contextmanager
+def _open_tick_db() -> Iterator[sqlite3.Connection]:
+    """tick 描画専用の軽量 DB 接続を開く。"""
+    conn = connect()
+    try:
+        yield conn
+    finally:
+        conn.close()
