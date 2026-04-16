@@ -174,6 +174,42 @@ def _active_session_line(now: datetime, conn: sqlite3.Connection) -> str:
     )
 
 
+def _build_tick_lines(
+    now: datetime,
+    conn: sqlite3.Connection,
+    *,
+    bar_color: str,
+    bar_style: str,
+) -> list[str]:
+    """tick_window 用の表示行を組み立てる (pure)。
+
+    Args:
+        now: 経過時間計算の基準時刻 (tz付き)。
+        conn: 読み取りに使う DB 接続。
+        bar_color: 'cyan' 等の rich カラー名。
+        bar_style: 'solid' / 'rainbow' / 'gradient'。
+
+    Returns:
+        1〜2 要素のリスト。[0] は active session 行，[1] は timer bar (あれば)。
+
+    """
+    lines: list[str] = [_active_session_line(now, conn)]
+    active = find_active_record(conn)
+    if active is not None and active.timer_target_at is not None:
+        bar = render_timer_bar(
+            now=now,
+            started_at=active.started_at,
+            target_at=active.timer_target_at,
+            fired_at=active.timer_fired_at,
+            bar_color=bar_color,
+            bar_style=bar_style,
+            width=30,
+        )
+        if bar:  # pragma: no cover  # target_at != None なので空文字にはならない (防御コード)
+            lines.append(bar)
+    return lines
+
+
 def _recent_records_lines(now: datetime, conn: sqlite3.Connection, limit: int = 5) -> list[str]:
     """直近の完了済みレコードを 1 行ずつ整形して返す (副作用なし)。
 
