@@ -23,6 +23,7 @@ class _FakePrompt:
 
     def __init__(self, value: Any) -> None:
         self._value = value
+        self.application = None
 
     def ask(self) -> Any:
         return self._value
@@ -327,6 +328,36 @@ def test_show_main_menu_not_recording_disables_stop(monkeypatch: pytest.MonkeyPa
     assert result is None
     stop_choice = next(c for c in captured["choices"] if c.value == "stop")
     assert stop_choice.disabled  # truthy な文字列
+
+
+def test_show_main_menu_with_tick_source_calls_attach(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """tick_source が渡されたら _attach_tick_window が呼ばれる。"""
+    attached: list[bool] = []
+
+    def _fake_attach(_app: Any, tick_source: Any) -> None:
+        attached.append(True)
+
+    monkeypatch.setattr(menu, "_attach_tick_window", _fake_attach)
+    _queue_prompts(monkeypatch, selects=["quit"])
+    menu._show_main_menu(recording=False, tick_source=lambda: ["test"])
+    assert attached == [True]
+
+
+def test_show_main_menu_without_tick_source_skips_attach(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """tick_source が None なら _attach_tick_window は呼ばれない。"""
+    attached: list[bool] = []
+
+    def _fake_attach(_app: Any, tick_source: Any) -> None:
+        attached.append(True)
+
+    monkeypatch.setattr(menu, "_attach_tick_window", _fake_attach)
+    _queue_prompts(monkeypatch, selects=["quit"])
+    menu._show_main_menu(recording=False)
+    assert attached == []
 
 
 # === _show_help ===

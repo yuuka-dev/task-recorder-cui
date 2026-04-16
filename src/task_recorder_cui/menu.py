@@ -334,10 +334,14 @@ def _pause() -> None:
         input(t("MENU_PROMPT_PRESS_ENTER"))
 
 
-def _show_main_menu(*, recording: bool) -> str | None:
+def _show_main_menu(
+    *,
+    recording: bool,
+    tick_source: Callable[[], list[str]] | None = None,
+) -> str | None:
     """メインメニューを表示し選択値 (value 文字列) を返す。Ctrl+C / ESC で None。"""
     stop_disabled: str | bool = False if recording else t("MENU_CHOICE_STOP_DISABLED")
-    return questionary.select(
+    q = questionary.select(
         t("MENU_PROMPT_ACTION"),
         choices=[
             questionary.Choice(t("MENU_CHOICE_START"), value="start"),
@@ -349,7 +353,10 @@ def _show_main_menu(*, recording: bool) -> str | None:
             questionary.Choice(t("MENU_CHOICE_HELP"), value="help"),
             questionary.Choice(t("MENU_CHOICE_QUIT"), value="quit"),
         ],
-    ).ask()
+    )
+    if tick_source is not None:
+        _attach_tick_window(q.application, tick_source)
+    return q.ask()
 
 
 def _show_help() -> None:
