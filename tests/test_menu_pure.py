@@ -116,7 +116,7 @@ def test_render_timer_bar_with_active_timer() -> None:
     )
     assert "1h30m" in text
     assert "2h30m" in text
-    assert "60%" in text
+    assert "60.00%" in text
     assert "[" in text and "]" in text
     assert "[[" not in text
 

@@ -132,17 +132,17 @@ def render_timer_bar(
     bar_body = (bar_core + " " * (width - len(bar_core)))[:width]
 
     if bar_style == "solid":
-        colored = f"[{bar_color}]{bar_body}[/{bar_color}]"
+        colored = f"[{bar_color} on white]{bar_body}[/{bar_color} on white]"
     elif bar_style == "gradient":
-        colored = _gradient_text(bar_body, bar_color)
+        colored = f"[on white]{_gradient_text(bar_body, bar_color)}[/on white]"
     elif bar_style == "rainbow":
-        colored = _rainbow_text(bar_body, phase_seconds=elapsed_seconds)
+        colored = f"[on white]{_rainbow_text(bar_body, phase_seconds=elapsed_seconds)}[/on white]"
     else:
-        colored = bar_body
+        colored = f"[on white]{bar_body}[/on white]"
 
     elapsed_m = elapsed_seconds // 60
     target_m = total_seconds // 60
-    pct = int(ratio * 100)
+    pct = f"{ratio * 100:.2f}"
     suffix = ""
     if should_flash(now=now, fired_at=fired_at, window_seconds=5):
         suffix = " [bold red blink]タイマー経過[/bold red blink]"

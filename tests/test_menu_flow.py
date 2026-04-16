@@ -98,7 +98,7 @@ def test_render_timer_bar_solid_style_uses_solid_color() -> None:
         bar_style="solid",
         width=10,
     )
-    assert "[cyan]" in text
+    assert "[cyan on white]" in text
 
 
 def test_render_timer_bar_gradient_style() -> None:
