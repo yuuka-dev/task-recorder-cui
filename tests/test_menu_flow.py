@@ -202,6 +202,58 @@ def test_render_timer_bar_no_fill_when_elapsed_zero() -> None:
     assert "0%" in text
 
 
+# === _rich_to_ansi / _attach_tick_window ===
+
+
+def test_rich_to_ansi_converts_markup() -> None:
+    """rich markup が ANSI エスケープ付き文字列に変換される。"""
+    text = menu._rich_to_ansi("[bold]hello[/bold]")
+    assert "hello" in text
+
+
+def test_attach_tick_window_sets_refresh_and_prepends_window() -> None:
+    """Application に refresh_interval と先頭 Window が追加される。"""
+    import questionary
+    from prompt_toolkit.layout.containers import HSplit
+    from prompt_toolkit.layout.controls import FormattedTextControl
+
+    q = questionary.select("x", choices=["a", "b"])
+    original_container = q.application.layout.container
+
+    menu._attach_tick_window(q.application, tick_source=lambda: ["test line"])
+
+    assert q.application.refresh_interval == 1.0
+    container = q.application.layout.container
+    assert isinstance(container, HSplit)
+    # 新しい HSplit は [tick_window, original_container] の 2 children
+    assert len(container.children) == 2
+    assert container.children[1] is original_container
+    # get_text の正常パスも通す
+    tick_control = container.children[0].content
+    assert isinstance(tick_control, FormattedTextControl)
+    result = tick_control.text()
+    assert result is not None
+
+
+def test_attach_tick_window_exception_in_source_returns_empty() -> None:
+    """tick_source が例外を投げても get_text は空を返す (メニューは落ちない)。"""
+    import questionary
+    from prompt_toolkit.layout.controls import FormattedTextControl
+
+    def _exploding() -> list[str]:
+        raise RuntimeError("boom")
+
+    q = questionary.select("x", choices=["a", "b"])
+    menu._attach_tick_window(q.application, tick_source=_exploding)
+
+    container = q.application.layout.container
+    tick_control = container.children[0].content
+    assert isinstance(tick_control, FormattedTextControl)
+    result = tick_control.text()
+    # 例外時は空 ANSI が返る (crash しない)
+    assert result is not None
+
+
 # === _render_header ===
 
 

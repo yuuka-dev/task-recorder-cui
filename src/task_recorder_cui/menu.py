@@ -6,10 +6,16 @@ pure 関数中心に当てる方針。
 """
 
 import contextlib
+import io
 import sqlite3
+from collections.abc import Callable
 from datetime import datetime
 
 import questionary
+from prompt_toolkit.formatted_text import ANSI
+from prompt_toolkit.layout.containers import HSplit, Window
+from prompt_toolkit.layout.controls import FormattedTextControl
+from rich.console import Console
 from rich.markup import escape
 
 from task_recorder_cui.commands import cat as cat_cmd
@@ -209,6 +215,43 @@ def _build_tick_lines(
         if bar:  # pragma: no cover  # target_at != None なので空文字にはならない (防御コード)
             lines.append(bar)
     return lines
+
+
+def _rich_to_ansi(markup: str) -> str:
+    """rich markup を ANSI エスケープシーケンス付き文字列に変換する。"""
+    buf = io.StringIO()
+    Console(file=buf, force_terminal=True, highlight=False, width=120).print(
+        markup, end=""
+    )
+    return buf.getvalue()
+
+
+def _attach_tick_window(
+    application: object,
+    tick_source: Callable[[], list[str]],
+) -> None:
+    """prompt_toolkit Application にリアルタイム tick 描画用 Window を差し込む。
+
+    Args:
+        application: questionary が内部で保持する prompt_toolkit.Application。
+        tick_source: 毎秒呼ばれ，表示行 (rich markup) のリストを返す callable。
+
+    """
+
+    def get_text() -> ANSI:
+        try:
+            lines = tick_source()
+            return ANSI(_rich_to_ansi("\n".join(lines)))
+        except Exception:
+            return ANSI("")
+
+    tick_window = Window(
+        content=FormattedTextControl(get_text),
+        dont_extend_height=True,
+    )
+    original = application.layout.container  # type: ignore[attr-defined]
+    application.layout.container = HSplit([tick_window, original])  # type: ignore[attr-defined]
+    application.refresh_interval = 1.0  # type: ignore[attr-defined]
 
 
 def _recent_records_lines(now: datetime, conn: sqlite3.Connection, limit: int = 5) -> list[str]:
