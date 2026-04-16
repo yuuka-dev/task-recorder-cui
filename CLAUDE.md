@@ -331,7 +331,9 @@ GitHub milestone で区切って進める。
   notify_when_closed = true                        # メニュー閉時の MessageBox
   [ui]
   lang = ""             # "" = 未設定 (LANG 環境変数を参照) / "ja" / "en"
-  bar_color = "cyan"    # rich カラー名
+  bar_color = "cyan"    # バー前景色 (rich カラー名 / bright_* / color(N) / #hex)
+  bar_bg_color = "white" # バー背景色 ("" で背景なし)
+  bar_bg_style = "full" # full (全体) / filled (進行部分のみ) / unfilled (空白のみ) / none
   bar_style = "solid"   # solid / rainbow / gradient
   ```
 - ユーザが `C:\...` 形式のパスを設定すると自動的に `/mnt/c/...` に正規化される。
