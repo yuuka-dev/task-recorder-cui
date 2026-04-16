@@ -1,7 +1,7 @@
 # メニュー内リアルタイム Tick 設計書 (hotfix)
 
 - 作成日: 2026-04-16
-- 対象バージョン: v1.1.2 (hotfix)
+- 対象バージョン: 未定 (リリース要否・番号は実装完了時にユーザと判断)
 - 対象プロジェクト: task-recorder-cui
 - 親 Phase: Phase 2.2 (ただし本件は同 Phase のうち **最小 hotfix** スコープ．Textual への本格移行は別 spec で扱う)
 - 関連 spec: [2026-04-15-timer-design.md](2026-04-15-timer-design.md), [2026-04-15-menu-design.md](2026-04-15-menu-design.md)
@@ -23,8 +23,11 @@
 - メニュー起動中，**1 秒毎** に「現在」行とプログレスバーが自動更新される
 - 既存の `render_timer_bar` / `should_flash` (発火時 5 秒点滅) のロジックはそのまま活用
 - `_render_header` から「現在」行とバー行を**削除**し，それらは選択肢メニューの **直上** (HSplit 先頭) に
-  リアルタイム Window として出す．タイトル・直近 5 件・「記録なし」の表示は従来通り `print_line` で
+  リアルタイム Window として出す．タイトル・直近 5 件の表示は従来通り `print_line` で
   ヘッダ出力する (起動時スナップショットとして上部に残り，スクロールで追える)
+- バー背景色 (`bar_bg_color`) と塗りスタイル (`bar_bg_style`: full / filled / unfilled / none)
+  を `config.toml` で設定可能にする
+- パーセント表示を小数 2 桁 (例: `54.00%`) に変更する
 
 ### やらないこと (本 hotfix のスコープ外)
 - `tsk now` 単発出力へのバー追加 (別課題)
@@ -52,23 +55,28 @@
 
 ```
 menu.py
-├ _build_tick_lines(now, conn) -> list[str]        # 新規 pure 関数
+├ _apply_fg(text, bar_style, bar_color, elapsed)   # 新規: バー前景スタイル適用
+├ _apply_bg(fg_filled, fg_unfilled, bg_color, bg_style) # 新規: バー背景色適用
+├ _build_tick_lines(now, conn, *, bar_color, bar_style, bar_bg_color, bar_bg_style) -> list[str]
 │   └ 既存の _active_session_line() と render_timer_bar() を組み合わせて 1〜2 行返す
-├ _attach_tick_window(application)                  # 新規: Application を in-place で改造
+├ _rich_to_ansi(markup) -> str                      # 新規: rich markup → ANSI 変換
+├ _attach_tick_window(application, tick_source)     # 新規: Application を in-place で改造
 │   └ refresh_interval セット + layout.container 差し替え
 ├ _render_header()                                  # 変更: 「現在」行とバー行を削除
-└ _run_loop()                                       # 変更: _show_main_menu() 経由で Question を受け取り
-                                                      _attach_tick_window でカスタム → ask() 実行
+├ _show_main_menu(*, recording, tick_source=None)   # 変更: tick_source 引数追加
+│   └ 内部で Question を生成し，tick_source が非 None なら _attach_tick_window を呼んで .ask()
+└ _run_loop()                                       # 変更: _tick クロージャを _show_main_menu に渡す
 ```
 
-`_show_main_menu` は現状「選択値の文字列」を返しているが，本 hotfix では `questionary.Question` を
-返すように変更し，呼び出し元が Application をカスタムしてから `.ask()` を呼ぶ．
+`_show_main_menu` の戻り値は `str | None` (選択値) のまま維持する．`tick_source` 引数を追加し，
+非 None の場合は内部で `_attach_tick_window(q.application, tick_source)` を呼んでから `q.ask()`
+を実行する．既存テストとの後方互換を保つため，戻り値型は変更しない．
 
 ### 3.3 tick_window の描画内容
 
 ```
 現在: [開発] ObatLog実装 (33m経過)                    ← _active_session_line 相当
-[=====>    ] 1h21m / 2h30m (54%)                     ← render_timer_bar 相当
+[=====>    ] 1h21m / 2h30m (54.00%)                   ← render_timer_bar 相当
 ```
 
 - 記録中でない場合は 1 行 (「現在: 記録なし」) のみ
@@ -91,17 +99,20 @@ tick 毎 (1 秒) に `open_db()` → `find_active_record()` → `find_category()
 ```
 メニュー起動
  └→ _render_header(print_line でタイトル / 直近を出力)      ← 静的スナップショット
- └→ _show_main_menu() が questionary.Question を返す
-     └→ _attach_tick_window(q.application) で Application を改造
+ └→ _run_loop が _tick クロージャを作成 (config から bar_color / bar_bg_color 等を閉包)
+ └→ _show_main_menu(recording=..., tick_source=_tick)
+     └→ 内部で q = questionary.select(...)
+     └→ tick_source が非 None なら _attach_tick_window(q.application, tick_source)
          ├ refresh_interval = 1.0
          └ layout.container = HSplit([tick_window, 元の container])
      └→ q.ask()                                              ← ここで入力待ち
          └ 1 秒毎に tick_window の get_text が呼ばれ
-            - now_utc() を取得
-            - open_db() で active / category / timer 状態を読む
-            - _build_tick_lines(now, conn) が文字列を返す
+            - tick_source() を呼ぶ (= _tick クロージャ)
+            - _tick 内で now_utc() + open_db() + _build_tick_lines
+            - _rich_to_ansi で ANSI に変換 → ANSI() でラップ
             - prompt_toolkit がその領域だけ再描画 (選択肢の上)
- └→ 選択肢が返る → _dispatch(choice) へ
+     └→ 選択値 (str | None) を返す
+ └→ _dispatch(choice) へ
 ```
 
 ## 5. エラー処理
@@ -136,9 +147,14 @@ tick 毎 (1 秒) に `open_db()` → `find_active_record()` → `find_category()
 - [ ] Ctrl+C で安全に抜けられる
 
 ### カバレッジ
-`fail_under = 100` 維持．`_attach_tick_window` / `get_text` クロージャは TTY 依存のため
-`# pragma: no cover` もしくは `[tool.coverage.run].omit` に追記して除外．pure 関数
-(`_build_tick_lines`) は 100% カバーする．
+`fail_under = 100` 維持．
+
+- `_attach_tick_window` は smoke テスト (`test_attach_tick_window_*`) で正常パス・例外パスともにカバー
+- `_rich_to_ansi` は `test_rich_to_ansi_converts_markup` でカバー
+- `_apply_fg` / `_apply_bg` は `test_apply_bg_*` 6 ケースで全分岐カバー
+- `_run_loop` 内の `_tick` クロージャ本体は monkeypatch 時に到達されないため `# pragma: no cover`
+- `_attach_tick_window` 内の `if application is None: return` ガードも `# pragma: no cover`
+  (テスト時の `_FakePrompt.application = None` 対応の防御コード)
 
 ## 7. リスクと却下案
 
@@ -161,9 +177,9 @@ tick 毎 (1 秒) に `open_db()` → `find_active_record()` → `find_category()
 ## 8. ブランチ・リリース
 
 - ブランチ: `fix/menu-realtime-tick` (親 `dev`，CLAUDE.md ブランチ戦略に準拠)
-- バージョン: **v1.1.2 を想定** (リリース要否・番号はユーザと実装完了時に最終判断)．
+- バージョン: 未定 (リリース要否・番号はユーザと実装完了時に最終判断)．
   出す場合の bump 先は 2 箇所: `pyproject.toml` + `src/task_recorder_cui/__init__.py`
-- リリースフロー (出す場合): `dev` merge → `release/v1.1.2` 切って bump → `main` PR → tag push で自動発行
+- リリースフロー (出す場合): `dev` merge → `release/vX.Y.Z` 切って bump → `main` PR → tag push で自動発行
 - CHANGELOG は README / `__init__` の version で代替 (既存運用踏襲，別途 CHANGELOG.md は持たない)
 
 ## 9. ロールアウト後の観測点
